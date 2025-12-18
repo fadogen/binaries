@@ -1,0 +1,259 @@
+name: "Build PHP"
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours (4 times a day)
+  workflow_dispatch:
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  check-and-sync:
+    name: "Check PHP versions and sync"
+    runs-on: ubuntu-latest
+    outputs:
+      build-matrix: ${{ steps.sync.outputs.matrix }}
+      eol-versions: ${{ steps.sync.outputs.eol }}
+      should-build: ${{ steps.sync.outputs.should-build }}
+      supported-versions: ${{ steps.sync.outputs.supported-versions }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-east-1
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Sync PHP versions"
+        id: sync
+        run: |
+          if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php.json metadata-php.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+            echo "Downloaded existing metadata-php.json"
+          else
+            echo '{}' > metadata-php.json
+            echo "Created empty metadata-php.json"
+          fi
+
+          echo "Fetching PHP.net API..."
+          curl -fsSL https://www.php.net/releases/index.php?json > api_response.json
+
+          python3 .github/scripts/php_build_manager.py check-versions
+          cat github_output.txt >> "$GITHUB_OUTPUT"
+
+  build:
+    name: "Build PHP ${{ matrix.php-version }} on ${{ matrix.os }}"
+    runs-on: ${{ matrix.runs-on }}
+    needs: [check-and-sync]
+    if: needs.check-and-sync.outputs.should-build == 'true'
+    timeout-minutes: 240
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-east-1
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.check-and-sync.outputs.build-matrix) }}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Setup PHP"
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          tools: pecl, composer
+          extensions: curl, openssl, mbstring
+          ini-values: memory_limit=-1
+        env:
+          phpts: nts
+
+      - id: cache-download
+        uses: actions/cache@v4
+        with:
+          path: downloads
+          key: php-dependencies-${{ matrix.php-version }}-${{ matrix.os }}
+
+      - name: "Download sources"
+        run: |
+          EXTENSIONS="bcmath,bz2,calendar,ctype,curl,dba,dom,exif,ffi,fileinfo,filter,ftp,gd,gmp,iconv,igbinary,imagick,imap,intl,ldap,lz4,mbregex,mbstring,mongodb,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,pdo_sqlsrv,pgsql,phar,posix,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,sqlsrv,sysvmsg,sysvsem,sysvshm,tokenizer,xml,xmlreader,xmlwriter,xsl,zip,zlib"
+
+          # Disable extensions not yet compatible with PHP 8.5
+          if [[ "${{ matrix.php-version }}" == "8.5" ]]; then
+            echo "PHP 8.5 detected: disabling pdo_sqlsrv, sqlsrv"
+            EXTENSIONS=$(echo "$EXTENSIONS" | sed 's/,pdo_sqlsrv,/,/g; s/,sqlsrv,/,/g')
+          fi
+
+          DOWN_CMD="curl -fsSL -o spc https://dl.static-php.dev/static-php-cli/spc-bin/nightly/spc-macos-aarch64 && chmod +x spc && ./spc doctor --auto-fix && ./spc download"
+
+          # Include xdebug in download for shared build
+          DOWNLOAD_EXTENSIONS="$EXTENSIONS,xdebug"
+          DOWNLOAD_CMD="$DOWN_CMD --with-php=${{ matrix.php-version }} --for-extensions=\"$DOWNLOAD_EXTENSIONS\" --ignore-cache-sources=php-src --prefer-pre-built"
+          eval "$DOWNLOAD_CMD"
+
+          echo "EXTENSIONS=$EXTENSIONS" >> $GITHUB_ENV
+
+      - name: "Build PHP"
+        run: |
+          export SPC_PHP_VERSION_SHORT=$(echo ${{ matrix.php-version }} | sed 's/\.//g' | cut -c1-2)
+          ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug -P .github/scripts/patch_fadogen_ini_scan.php
+
+      - name: "Import signing certificate"
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          rm $RUNNER_TEMP/certificate.p12
+          echo "✓ Signing certificate imported"
+
+      - name: "Sign PHP binaries"
+        env:
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+        run: |
+          ENTITLEMENTS=".github/scripts/entitlements-php.plist"
+
+          echo "==> Signing PHP CLI..."
+          codesign --force --sign "$SIGNING_IDENTITY" --timestamp --options runtime \
+            --entitlements "$ENTITLEMENTS" \
+            buildroot/bin/php
+
+          echo "==> Signing PHP-FPM..."
+          codesign --force --sign "$SIGNING_IDENTITY" --timestamp --options runtime \
+            --entitlements "$ENTITLEMENTS" \
+            buildroot/bin/php-fpm
+
+          # Sign extensions .so (without entitlements)
+          echo "==> Signing extensions..."
+          find buildroot -name "*.so" -type f | while read -r so_file; do
+            echo "    Signing: $(basename "$so_file")"
+            codesign --force --sign "$SIGNING_IDENTITY" --timestamp --options runtime "$so_file"
+          done
+
+          echo "==> Verifying signatures..."
+          codesign --verify --strict buildroot/bin/php
+          codesign --verify --strict buildroot/bin/php-fpm
+
+          echo "✓ All PHP binaries signed and verified"
+
+      - name: "Create and Upload PHP archive to R2 with SHA-256"
+        run: |
+          python3 .github/scripts/php_build_manager.py create-archive \
+            --php-version ${{ matrix.full-version }}
+
+          source archive_info.txt
+          echo "Uploading: $ARCHIVE_NAME"
+
+          UPLOAD_RESULT=$(aws s3api put-object \
+            --bucket ${{ secrets.R2_BUCKET_NAME }} \
+            --key "$ARCHIVE_NAME" \
+            --body "$ARCHIVE_NAME" \
+            --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+            --checksum-algorithm SHA256 \
+            --metadata phpversion="${{ matrix.full-version }}",majorminor="${{ matrix.php-version }}" \
+            --output json)
+
+          CHECKSUM_BASE64=$(echo "$UPLOAD_RESULT" | jq -r '.ChecksumSHA256')
+          CHECKSUM_HEX=$(echo "$CHECKSUM_BASE64" | base64 -d | xxd -p -c 256)
+
+          echo "✓ Uploaded: $ARCHIVE_NAME"
+          echo "✓ SHA-256: $CHECKSUM_HEX"
+
+          echo "CHECKSUM_SHA256=$CHECKSUM_HEX" >> $GITHUB_ENV
+
+      - name: "Save checksum"
+        run: |
+          source archive_info.txt
+
+          echo "${{ matrix.full-version }},$CHECKSUM_SHA256,$ARCHIVE_NAME" > checksum-${{ matrix.full-version }}.txt
+          echo "Checksum saved: ${{ matrix.full-version }},$CHECKSUM_SHA256,$ARCHIVE_NAME"
+
+      - name: "Upload checksum info"
+        uses: actions/upload-artifact@v5
+        with:
+          name: checksum-${{ matrix.full-version }}
+          path: checksum-${{ matrix.full-version }}.txt
+          retention-days: 1
+
+  update-metadata:
+    name: "Update metadata-php.json"
+    runs-on: ubuntu-latest
+    needs: [check-and-sync, build]
+    if: needs.build.result == 'success'
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-east-1
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Download checksums"
+        uses: actions/download-artifact@v6
+        with:
+          pattern: checksum-*
+          merge-multiple: true
+
+      - name: "Update metadata-php.json"
+        run: |
+          if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php.json metadata-php.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+            echo "Downloaded existing metadata-php.json"
+          else
+            echo '{}' > metadata-php.json
+            echo "Created empty metadata-php.json"
+          fi
+
+          BUILD_MATRIX='${{ needs.check-and-sync.outputs.build-matrix }}'
+
+          ALL_CHECKSUMS=$(cat checksum-*.txt 2>/dev/null | grep -v "^$")
+
+          SUPPORTED_VERSIONS='${{ needs.check-and-sync.outputs.supported-versions }}'
+
+          python3 .github/scripts/php_build_manager.py update-metadata \
+            --build-matrix "$BUILD_MATRIX" \
+            --archive-checksums "$ALL_CHECKSUMS" \
+            --supported-versions "$SUPPORTED_VERSIONS"
+
+          aws s3 cp metadata-php.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php.json --endpoint-url ${{ secrets.R2_ENDPOINT }}
+          echo "Uploaded metadata-php.json to R2"
+
+      - name: "Cleanup old binaries"
+        run: |
+          echo "Starting cleanup of old PHP binaries..."
+
+          BUILD_MATRIX='${{ needs.check-and-sync.outputs.build-matrix }}'
+          echo "$BUILD_MATRIX" | jq -r '.include[].["php-version"]' | sort -u | while read php_version; do
+            echo "Cleaning up old binaries for PHP $php_version"
+
+            CURRENT_FILENAME=$(jq -r ".\"$php_version\".filename // \"\"" metadata-php.json)
+
+            if [[ -z "$CURRENT_FILENAME" ]]; then
+              echo "  No current filename found in metadata for PHP $php_version"
+              continue
+            fi
+
+            echo "  Current file: $CURRENT_FILENAME"
+
+            aws s3api list-objects-v2 \
+              --bucket ${{ secrets.R2_BUCKET_NAME }} \
+              --prefix "php-$php_version." \
+              --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+              --query 'Contents[].Key' \
+              --output text | tr '\t' '\n' | while read -r file_key; do
+              if [[ "$file_key" != "$CURRENT_FILENAME" ]] && [[ "$file_key" != "None" ]] && [[ -n "$file_key" ]]; then
+                echo "  Deleting old binary: $file_key"
+                aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" \
+                  --endpoint-url ${{ secrets.R2_ENDPOINT }} || echo "  Failed to delete $file_key"
+              fi
+            done
+          done
+
+          echo "Cleanup completed"
