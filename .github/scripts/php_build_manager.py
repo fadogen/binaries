@@ -165,7 +165,8 @@ def update_metadata(build_matrix_json, archive_checksums, supported_versions_jso
         full_version = build['full-version']
 
         if full_version not in checksums_map:
-            raise ValueError(f"No checksum found for {full_version}")
+            print(f"Skipping {full_version} - no checksum (build may have failed)")
+            continue
 
         release_date = build.get('releaseDate', '')
         checksum_data = checksums_map[full_version]
