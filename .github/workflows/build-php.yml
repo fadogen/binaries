@@ -68,12 +68,6 @@ jobs:
         env:
           phpts: nts
 
-      - id: cache-download
-        uses: actions/cache@v4
-        with:
-          path: downloads
-          key: php-dependencies-${{ matrix.php-version }}-${{ matrix.os }}
-
       - name: "Download sources"
         run: |
           EXTENSIONS="bcmath,bz2,calendar,ctype,curl,dba,dom,exif,ffi,fileinfo,filter,ftp,gd,gmp,iconv,igbinary,imagick,imap,intl,ldap,lz4,mbregex,mbstring,mongodb,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,pdo_sqlsrv,pgsql,phar,posix,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,sqlsrv,sysvmsg,sysvsem,sysvshm,tokenizer,xml,xmlreader,xmlwriter,xsl,zip,zlib"
@@ -88,7 +82,7 @@ jobs:
 
           # Include xdebug in download for shared build
           DOWNLOAD_EXTENSIONS="$EXTENSIONS,xdebug"
-          DOWNLOAD_CMD="$DOWN_CMD --with-php=${{ matrix.php-version }} --for-extensions=\"$DOWNLOAD_EXTENSIONS\" --ignore-cache-sources=php-src --prefer-pre-built"
+          DOWNLOAD_CMD="$DOWN_CMD --with-php=${{ matrix.php-version }} --for-extensions=\"$DOWNLOAD_EXTENSIONS\" --prefer-pre-built"
           eval "$DOWNLOAD_CMD"
 
           echo "EXTENSIONS=$EXTENSIONS" >> $GITHUB_ENV
