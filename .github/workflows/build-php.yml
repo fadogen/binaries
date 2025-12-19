@@ -90,7 +90,7 @@ jobs:
       - name: "Build PHP"
         run: |
           export SPC_PHP_VERSION_SHORT=$(echo ${{ matrix.php-version }} | sed 's/\.//g' | cut -c1-2)
-          ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug -P .github/scripts/patch_fadogen_ini_scan.php
+          ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug -P .github/scripts/patch_fadogen_ini_scan.php --debug
 
       - name: "Import signing certificate"
         env:
