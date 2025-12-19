@@ -44,7 +44,7 @@ def check_versions():
     api_data = load_json('api_response.json')
 
     all_os = ['macos-aarch64']
-    os_runners = {'macos-aarch64': 'macos-latest'}
+    os_runners = {'macos-aarch64': 'macos-26'}
 
     build_matrix = []
     eol_versions = []
