@@ -19,7 +19,7 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download and verify sshpass source"
         run: |
@@ -146,7 +146,7 @@ jobs:
           echo "${VERSION},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-sshpass.txt
 
       - name: "Upload checksum info"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: checksum-sshpass
           path: checksum-sshpass.txt
@@ -162,10 +162,10 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download checksum artifact"
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: checksum-sshpass
 

@@ -22,7 +22,7 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download metadata-services.json from R2"
         id: download-metadata
@@ -52,7 +52,7 @@ jobs:
       matrix: ${{ fromJSON(needs.check-and-sync.outputs.build-matrix) }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Update Homebrew"
         run: |
@@ -145,7 +145,7 @@ jobs:
           echo "${SERVICE},${VERSION},${MAJOR},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-${SERVICE}-${VERSION}.txt
 
       - name: "Upload checksum info"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: checksum-${{ matrix.service }}-${{ matrix.version }}
           path: checksum-${{ matrix.service }}-${{ matrix.version }}.txt
@@ -161,7 +161,7 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download metadata-services.json from R2"
         run: |
@@ -170,7 +170,7 @@ jobs:
           fi
 
       - name: "Download all checksum artifacts"
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           pattern: checksum-*
           merge-multiple: true
@@ -198,7 +198,7 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download updated metadata-services.json from R2"
         run: |

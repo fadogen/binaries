@@ -21,7 +21,7 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download metadata-composer.json from R2"
         id: download-metadata
@@ -76,7 +76,7 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download and verify Composer PHAR"
         run: |
@@ -139,7 +139,7 @@ jobs:
           echo "${VERSION},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-composer.txt
 
       - name: "Upload checksum info"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: checksum-composer
           path: checksum-composer.txt
@@ -155,10 +155,10 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download checksum artifact"
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: checksum-composer
 
@@ -196,7 +196,7 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: "Download updated metadata-composer.json from R2"
         run: |
