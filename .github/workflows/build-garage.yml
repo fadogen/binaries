@@ -101,6 +101,7 @@ jobs:
 
           echo "Extracting source..."
           tar -xzf "garage-source.tar.gz"
+          mv garage garage-src
 
           echo "Source downloaded and extracted"
 
@@ -108,7 +109,7 @@ jobs:
         run: |
           VERSION="${{ needs.check-garage-version.outputs.garage-version }}"
 
-          cd garage
+          cd garage-src
 
           echo "Building Garage ${VERSION} (release mode)..."
           echo "This may take several minutes..."
