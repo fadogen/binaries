@@ -94,14 +94,26 @@ jobs:
       - name: "Download and extract Garage source"
         run: |
           VERSION="${{ needs.check-garage-version.outputs.garage-version }}"
-          SOURCE_URL="https://git.deuxfleurs.fr/Deuxfleurs/garage/archive/v${VERSION}.tar.gz"
+          GITEA_URL="https://git.deuxfleurs.fr/Deuxfleurs/garage/archive/v${VERSION}.tar.gz"
+          GITHUB_URL="https://github.com/deuxfleurs-org/garage/archive/refs/tags/v${VERSION}.tar.gz"
 
           echo "Downloading Garage v${VERSION} source..."
-          curl -fsSL --retry 3 --retry-delay 5 -o "garage-source.tar.gz" "$SOURCE_URL"
+
+          # Try Gitea first, fallback to GitHub mirror
+          if curl -sSL --retry 2 --retry-delay 3 --max-time 60 -o "garage-source.tar.gz" "$GITEA_URL" && [[ -s "garage-source.tar.gz" ]]; then
+            echo "Downloaded from Gitea"
+            EXTRACTED_DIR="garage"
+          elif curl -sSL --retry 2 --retry-delay 3 --max-time 120 -o "garage-source.tar.gz" "$GITHUB_URL" && [[ -s "garage-source.tar.gz" ]]; then
+            echo "Downloaded from GitHub mirror"
+            EXTRACTED_DIR="garage-${VERSION}"
+          else
+            echo "ERROR: Failed to download source from both Gitea and GitHub"
+            exit 1
+          fi
 
           echo "Extracting source..."
           tar -xzf "garage-source.tar.gz"
-          mv garage garage-src
+          mv "$EXTRACTED_DIR" garage-src
 
           echo "Source downloaded and extracted"
 
