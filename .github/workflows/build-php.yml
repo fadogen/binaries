@@ -25,6 +25,21 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v6
 
+      - name: "Fetch FrankenPHP supported versions"
+        run: |
+          echo "Fetching serversideup PHP versions config..."
+          curl -fsSL "https://raw.githubusercontent.com/serversideup/docker-php/main/scripts/conf/php-versions-base-config.yml" -o serversideup-config.yml
+
+          # Extract FrankenPHP supported versions using yq
+          FRANKENPHP_VERSIONS=$(yq -r '
+            [.php_versions[].minor_versions[].minor] as $all |
+            [.php_variations[] | select(.name == "frankenphp") | .excluded_minor_versions[]] as $excluded |
+            ($all - $excluded) | sort | reverse | join(",")
+          ' serversideup-config.yml)
+
+          echo "FrankenPHP supported versions: $FRANKENPHP_VERSIONS"
+          echo "$FRANKENPHP_VERSIONS" > frankenphp_versions.txt
+
       - name: "Sync PHP versions"
         id: sync
         run: |

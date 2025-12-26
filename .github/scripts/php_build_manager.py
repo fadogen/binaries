@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 METADATA_FILE = 'metadata-php.json'
+FRANKENPHP_VERSIONS_FILE = 'frankenphp_versions.txt'
 
 def load_json(filepath):
     """Load JSON file."""
@@ -49,8 +50,18 @@ def check_versions():
     build_matrix = []
     eol_versions = []
 
-    # Only build these specific PHP versions
-    allowed_versions = ['8.3', '8.4', '8.5']
+    # Get allowed versions from serversideup FrankenPHP config
+    if Path(FRANKENPHP_VERSIONS_FILE).exists():
+        with open(FRANKENPHP_VERSIONS_FILE, 'r') as f:
+            allowed_versions = [v.strip() for v in f.read().strip().split(',') if v.strip()]
+        print(f"Allowed PHP versions from serversideup: {allowed_versions}")
+    else:
+        # Fallback: use existing metadata keys if available
+        if metadata:
+            allowed_versions = list(metadata.keys())
+            print(f"Warning: FrankenPHP versions file not found, using existing metadata keys: {allowed_versions}")
+        else:
+            raise RuntimeError("Cannot determine allowed PHP versions: serversideup config unavailable and no existing metadata")
 
     supported_versions = []
     if "8" in api_data:
