@@ -201,7 +201,8 @@ jobs:
           # Update metadata for each architecture separately
           for arch in arm64 x86_64; do
             # Filter checksums for this architecture and update metadata
-            grep "\-${arch}\.tar\.gz$" checksum-*.txt 2>/dev/null | \
+            # Use -h to suppress filename prefixes when grepping multiple files
+            grep -h "\-${arch}\.tar\.gz$" checksum-*.txt 2>/dev/null | \
               .github/scripts/services-metadata-manager.sh update-metadata "$arch" || true
           done
 

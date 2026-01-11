@@ -1,0 +1,22 @@
+name: "Fix Metadata Keys (One-shot)"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-metadata:
+    name: "Fix corrupted metadata keys"
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-east-1
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Fix metadata keys"
+        run: |
+          .github/scripts/fix-metadata-keys.sh

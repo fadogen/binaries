@@ -73,6 +73,14 @@ build() {
         FMT_DIR="/usr/local/opt/fmt"  # Intel Mac
     fi
 
+    # Fix ColumnStore CMakeLists.txt for CMake 4.x compatibility (as per Homebrew formula)
+    if [ -f "storage/columnstore/columnstore/CMakeLists.txt" ]; then
+        sed -i.bak 's/CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)/CMAKE_MINIMUM_REQUIRED(VERSION 3.10)/' \
+            storage/columnstore/columnstore/CMakeLists.txt
+        rm -f storage/columnstore/columnstore/CMakeLists.txt.bak
+        echo "✓ Patched ColumnStore CMakeLists.txt for CMake 4.x"
+    fi
+
     # Configure with CMake
     # -DINSTALL_* are relative to CMAKE_INSTALL_PREFIX
     cmake -S . -B build \
