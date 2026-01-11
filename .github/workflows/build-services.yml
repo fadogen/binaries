@@ -24,12 +24,16 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v6
 
-      - name: "Download metadata-services.json from R2"
-        id: download-metadata
+      - name: "Download metadata files from R2"
         run: |
-          if ! aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-services.json metadata-services.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-            echo "{}" > metadata-services.json
-          fi
+          for arch in arm64 x86_64; do
+            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-services-${arch}.json metadata-services-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+              echo "Downloaded existing metadata-services-${arch}.json"
+            else
+              echo "{}" > metadata-services-${arch}.json
+              echo "Created empty metadata-services-${arch}.json"
+            fi
+          done
 
       - name: "Check versions and generate build matrix"
         id: check
@@ -37,8 +41,8 @@ jobs:
           .github/scripts/services-metadata-manager.sh check-versions
 
   build-service:
-    name: "Build ${{ matrix.service }} ${{ matrix.version }}"
-    runs-on: macos-latest
+    name: "Build ${{ matrix.service }} ${{ matrix.version }} (${{ matrix.arch }})"
+    runs-on: ${{ matrix.runs-on }}
     needs: [check-and-sync]
     if: needs.check-and-sync.outputs.should-build == 'true'
     timeout-minutes: 240
@@ -58,15 +62,24 @@ jobs:
         run: |
           echo "Updating Homebrew..."
           brew update >/dev/null 2>&1
-          echo "✓ Homebrew updated"
+          echo "Homebrew updated"
 
       - name: "Install bash via Homebrew"
         run: |
           echo "Installing bash..."
           brew install bash
-          echo "✓ Bash installed: $(/opt/homebrew/bin/bash --version | head -1)"
+          # Add Homebrew bin to PATH for both architectures
+          if [[ -d "/opt/homebrew/bin" ]]; then
+            echo "/opt/homebrew/bin" >> $GITHUB_PATH
+            echo "Bash installed: $(/opt/homebrew/bin/bash --version | head -1)"
+          else
+            echo "/usr/local/bin" >> $GITHUB_PATH
+            echo "Bash installed: $(/usr/local/bin/bash --version | head -1)"
+          fi
 
       - name: "Build ${{ matrix.service }} from source"
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
           .github/scripts/build-from-recipes.sh "${{ matrix.recipe }}" 2>&1 | tail -20
 
@@ -90,7 +103,7 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
           rm $RUNNER_TEMP/certificate.p12
-          echo "✓ Signing certificate imported"
+          echo "Signing certificate imported"
 
       - name: "Sign binaries"
         env:
@@ -98,27 +111,30 @@ jobs:
         run: |
           SERVICE="${{ matrix.service }}"
           VERSION="${{ matrix.version }}"
+          ARCH="${{ matrix.arch }}"
           BUNDLE_DIR="${SERVICE}-${VERSION}"
+          ARCHIVE_NAME="${SERVICE}-${VERSION}-${ARCH}.tar.gz"
 
           # Extract archive to sign
-          tar -xzf "${BUNDLE_DIR}.tar.gz"
+          tar -xzf "${ARCHIVE_NAME}"
 
           # Sign all Mach-O files using the existing script
           .github/scripts/sign-binaries.sh "$SERVICE" "$BUNDLE_DIR"
 
           # Recreate the signed archive
-          rm "${BUNDLE_DIR}.tar.gz"
-          tar -czf "${BUNDLE_DIR}.tar.gz" "$BUNDLE_DIR"
+          rm "${ARCHIVE_NAME}"
+          tar -czf "${ARCHIVE_NAME}" "$BUNDLE_DIR"
           rm -rf "$BUNDLE_DIR"
 
-          echo "✓ Binaries signed and archive recreated"
+          echo "Binaries signed and archive recreated"
 
       - name: "Upload archive to R2 with SHA-256 checksum"
         run: |
           SERVICE="${{ matrix.service }}"
           VERSION="${{ matrix.version }}"
           MAJOR="${{ matrix.major }}"
-          ARCHIVE_NAME="${SERVICE}-${VERSION}.tar.gz"
+          ARCH="${{ matrix.arch }}"
+          ARCHIVE_NAME="${SERVICE}-${VERSION}-${ARCH}.tar.gz"
 
           if [[ ! -f "$ARCHIVE_NAME" ]]; then
             echo "[ERROR] Archive not found: $ARCHIVE_NAME"
@@ -132,29 +148,30 @@ jobs:
             --body "$ARCHIVE_NAME" \
             --endpoint-url ${{ secrets.R2_ENDPOINT }} \
             --checksum-algorithm SHA256 \
-            --metadata service="$SERVICE",version="$VERSION",major="$MAJOR" \
+            --metadata service="$SERVICE",version="$VERSION",major="$MAJOR",arch="$ARCH" \
             --output json)
 
           # Extract checksum from upload response and convert to hex
           CHECKSUM_BASE64=$(echo "$UPLOAD_RESULT" | jq -r '.ChecksumSHA256')
           CHECKSUM_HEX=$(echo "$CHECKSUM_BASE64" | base64 -d | xxd -p -c 256)
 
-          echo "✓ Uploaded $ARCHIVE_NAME (SHA-256: $CHECKSUM_HEX)"
+          echo "Uploaded $ARCHIVE_NAME (SHA-256: $CHECKSUM_HEX)"
 
           # Save checksum info (format: service,version,major,sha256,filename)
-          echo "${SERVICE},${VERSION},${MAJOR},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-${SERVICE}-${VERSION}.txt
+          echo "${SERVICE},${VERSION},${MAJOR},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-${SERVICE}-${VERSION}-${ARCH}.txt
 
       - name: "Upload checksum info"
         uses: actions/upload-artifact@v6
         with:
-          name: checksum-${{ matrix.service }}-${{ matrix.version }}
-          path: checksum-${{ matrix.service }}-${{ matrix.version }}.txt
+          name: checksum-${{ matrix.service }}-${{ matrix.version }}-${{ matrix.arch }}
+          path: checksum-${{ matrix.service }}-${{ matrix.version }}-${{ matrix.arch }}.txt
           retention-days: 1
 
   update-metadata:
-    name: "Update metadata-services.json"
+    name: "Update metadata files"
     runs-on: ubuntu-latest
     needs: [check-and-sync, build-service]
+    if: always() && needs.check-and-sync.outputs.should-build == 'true'
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -163,11 +180,15 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v6
 
-      - name: "Download metadata-services.json from R2"
+      - name: "Download metadata files from R2"
         run: |
-          if ! aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-services.json metadata-services.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-            echo "{}" > metadata-services.json
-          fi
+          for arch in arm64 x86_64; do
+            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-services-${arch}.json metadata-services-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+              echo "Downloaded existing metadata-services-${arch}.json"
+            else
+              echo "{}" > metadata-services-${arch}.json
+            fi
+          done
 
       - name: "Download all checksum artifacts"
         uses: actions/download-artifact@v7
@@ -177,16 +198,19 @@ jobs:
 
       - name: "Update metadata"
         run: |
-          # Consolidate all checksums from successful builds
-          ALL_CHECKSUMS=$(cat checksum-*.txt 2>/dev/null | grep -v "^$")
+          # Update metadata for each architecture separately
+          for arch in arm64 x86_64; do
+            # Filter checksums for this architecture and update metadata
+            grep "\-${arch}\.tar\.gz$" checksum-*.txt 2>/dev/null | \
+              .github/scripts/services-metadata-manager.sh update-metadata "$arch" || true
+          done
 
-          # Update metadata (format: service,version,major,sha256,filename)
-          echo "$ALL_CHECKSUMS" | .github/scripts/services-metadata-manager.sh update-metadata
-
-      - name: "Upload metadata-services.json to R2"
+      - name: "Upload metadata files to R2"
         run: |
-          aws s3 cp metadata-services.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-services.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
-          echo "✓ Metadata updated"
+          for arch in arm64 x86_64; do
+            aws s3 cp metadata-services-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-services-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+            echo "Uploaded metadata-services-${arch}.json"
+          done
 
   cleanup-old-builds:
     name: "Cleanup old service builds"
@@ -200,42 +224,48 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v6
 
-      - name: "Download updated metadata-services.json from R2"
+      - name: "Download metadata files from R2"
         run: |
-          aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-services.json metadata-services.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+          for arch in arm64 x86_64; do
+            aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-services-${arch}.json metadata-services-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+          done
 
       - name: "Cleanup old builds"
         run: |
           source .github/config/services-config.sh
 
-          # Extract service-major pairs from metadata (only successful builds are in metadata)
-          jq -r 'to_entries[] | .key as $service | .value | to_entries[] | "\($service),\(.key)"' metadata-services.json | sort -u | while IFS=',' read -r service major; do
-            # Get the current filename from metadata
-            CURRENT_FILENAME=$(jq -r ".\"$service\".\"$major\".filename // \"\"" metadata-services.json)
+          for arch in arm64 x86_64; do
+            echo "=== Cleaning up old builds for $arch ==="
 
-            if [[ -z "$CURRENT_FILENAME" ]]; then
-              continue
-            fi
+            # Extract service-major pairs from metadata (only successful builds are in metadata)
+            jq -r 'to_entries[] | .key as $service | .value | to_entries[] | "\($service),\(.key)"' metadata-services-${arch}.json 2>/dev/null | sort -u | while IFS=',' read -r service major; do
+              # Get the current filename from metadata
+              CURRENT_FILENAME=$(jq -r ".\"$service\".\"$major\".filename // \"\"" metadata-services-${arch}.json)
 
-            # Single-version services: delete ALL versions (prefix="${service}-")
-            # Multi-version services: delete only same major (prefix="${service}-${major}.")
-            if is_single_version_service "$service" 2>/dev/null; then
-              PREFIX="${service}-"
-            else
-              PREFIX="${service}-${major}."
-            fi
-
-            # List all files matching prefix and delete all except the current one
-            aws s3api list-objects-v2 \
-              --bucket ${{ secrets.R2_BUCKET_NAME }} \
-              --prefix "$PREFIX" \
-              --endpoint-url ${{ secrets.R2_ENDPOINT }} \
-              --query 'Contents[].Key' \
-              --output text 2>/dev/null | tr '\t' '\n' | while read -r file_key; do
-              if [[ "$file_key" != "$CURRENT_FILENAME" ]] && [[ "$file_key" != "None" ]] && [[ -n "$file_key" ]]; then
-                if aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
-                  echo "✓ Deleted old build: $file_key"
-                fi
+              if [[ -z "$CURRENT_FILENAME" ]]; then
+                continue
               fi
+
+              # Single-version services: delete ALL versions (prefix="${service}-")
+              # Multi-version services: delete only same major (prefix="${service}-${major}.")
+              if is_single_version_service "$service" 2>/dev/null; then
+                PREFIX="${service}-"
+              else
+                PREFIX="${service}-${major}."
+              fi
+
+              # List all files matching prefix AND architecture, delete all except the current one
+              aws s3api list-objects-v2 \
+                --bucket ${{ secrets.R2_BUCKET_NAME }} \
+                --prefix "$PREFIX" \
+                --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+                --query 'Contents[].Key' \
+                --output text 2>/dev/null | tr '\t' '\n' | grep "\-${arch}\.tar\.gz$" | while read -r file_key; do
+                if [[ "$file_key" != "$CURRENT_FILENAME" ]] && [[ "$file_key" != "None" ]] && [[ -n "$file_key" ]]; then
+                  if aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
+                    echo "Deleted old build: $file_key"
+                  fi
+                fi
+              done
             done
           done

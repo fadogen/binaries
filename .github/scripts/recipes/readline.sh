@@ -1,19 +1,29 @@
 #!/bin/bash
-# Build recipe for readline 8.3.1
-# Translated from: homebrew-core/Formula/r/readline.rb
+# Build recipe for readline
 # Description: Library for command-line editing
 
 set -e
 
 # Metadata
 export PACKAGE_NAME="readline"
-export PACKAGE_VERSION="8.3.1"
-export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/readline/readline-8.3.tar.gz"
+export PACKAGE_VERSION="8.3.3"
 export PACKAGE_SHA256="fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc"
 
-# Runtime dependencies
-export DEPENDENCIES=(
+# Base version (without patch level)
+READLINE_BASE_VERSION="${PACKAGE_VERSION%.*}"
+
+# Derived from version
+export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${READLINE_BASE_VERSION}.tar.gz"
+
+# Patch checksums (001, 002, 003)
+declare -a PATCH_CHECKSUMS=(
+    "21f0a03106dbe697337cd25c70eb0edbaa2bdb6d595b45f83285cdd35bac84de"
+    "e27364396ba9f6debf7cbaaf1a669e2b2854241ae07f7eca74ca8a8ba0c97472"
+    "72dee13601ce38f6746eb15239999a7c56f8e1ff5eb1ec8153a1f213e4acdb29"
 )
+
+# No runtime dependencies
+export DEPENDENCIES=()
 
 # Build function
 build() {
@@ -30,26 +40,32 @@ build() {
 
     cd "${SOURCE_DIR}"
 
-    # Apply patches (readline 8.3.1 = 8.3 + patch 001)
+    # Apply patches (readline 8.3.3 = 8.3 + patches 001-003)
     echo "→ Applying patches..."
-    local PATCH_URL="https://ftpmirror.gnu.org/gnu/readline/readline-8.3-patches/readline83-001"
-    local PATCH_SHA256="21f0a03106dbe697337cd25c70eb0edbaa2bdb6d595b45f83285cdd35bac84de"
-    local PATCH_FILE="${DOWNLOADS_DIR}/readline83-001"
+    local PATCH_LEVEL="${PACKAGE_VERSION##*.}"
+    local BASE_SHORT="${READLINE_BASE_VERSION//./}"
 
-    # Download patch
-    if [ ! -f "$PATCH_FILE" ]; then
-        curl -fSL -o "$PATCH_FILE" "$PATCH_URL"
-    fi
+    for i in $(seq 1 "$PATCH_LEVEL"); do
+        local PATCH_NUM=$(printf "%03d" "$i")
+        local PATCH_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${READLINE_BASE_VERSION}-patches/${PACKAGE_NAME}${BASE_SHORT}-${PATCH_NUM}"
+        local PATCH_FILE="${DOWNLOADS_DIR}/${PACKAGE_NAME}${BASE_SHORT}-${PATCH_NUM}"
+        local PATCH_SHA256="${PATCH_CHECKSUMS[$((i-1))]}"
 
-    # Verify patch checksum
-    echo "$PATCH_SHA256  $PATCH_FILE" | shasum -a 256 -c - || {
-        echo "✗ Patch checksum verification failed"
-        return 1
-    }
+        # Download patch
+        if [ ! -f "$PATCH_FILE" ]; then
+            curl -fSL -o "$PATCH_FILE" "$PATCH_URL"
+        fi
 
-    # Apply patch (-p0 means strip 0 path components)
-    patch -p0 < "$PATCH_FILE"
-    echo "✓ Patches applied"
+        # Verify patch checksum
+        echo "$PATCH_SHA256  $PATCH_FILE" | shasum -a 256 -c - || {
+            echo "✗ Patch ${PATCH_NUM} checksum verification failed"
+            return 1
+        }
+
+        # Apply patch (-p0 means strip 0 path components)
+        patch -p0 < "$PATCH_FILE"
+    done
+    echo "✓ ${PATCH_LEVEL} patches applied"
 
     # Configure with ncurses support
     ./configure \

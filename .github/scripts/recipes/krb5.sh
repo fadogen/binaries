@@ -1,14 +1,17 @@
 #!/bin/bash
-# Build recipe for krb5 1.22.1
-# Translated from: homebrew-core/Formula/k/krb5.rb
+# Build recipe for krb5
+# Description: Network authentication protocol
 
 set -e
 
 # Metadata
 export PACKAGE_NAME="krb5"
 export PACKAGE_VERSION="1.22.1"
-export PACKAGE_URL="https://kerberos.org/dist/krb5/1.22/krb5-1.22.1.tar.gz"
 export PACKAGE_SHA256="1a8832b8cad923ebbf1394f67e2efcf41e3a49f460285a66e35adec8fa0053af"
+
+# Derived from version (URL uses major.minor in path)
+PACKAGE_VERSION_SHORT="${PACKAGE_VERSION%.*}"
+export PACKAGE_URL="https://kerberos.org/dist/${PACKAGE_NAME}/${PACKAGE_VERSION_SHORT}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies (must be built first)
 export DEPENDENCIES=(
@@ -20,7 +23,7 @@ build() {
     local PREFIX="$1"
     local SOURCE_DIR="$2"
 
-    echo "Building krb5 ${PACKAGE_VERSION}..."
+    echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
     # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
@@ -45,5 +48,5 @@ build() {
     # Install directly to final location
     make install
 
-    echo "✓ krb5 built successfully"
+    echo "✓ ${PACKAGE_NAME} built successfully"
 }

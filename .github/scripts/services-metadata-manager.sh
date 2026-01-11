@@ -4,10 +4,10 @@ set -euo pipefail
 # ================================
 # SERVICES METADATA MANAGER
 # ================================
-# Manages metadata-services.json for all database services
+# Manages metadata-services-{arch}.json for all database services
 # Commands:
-#   check-versions    - Compare metadata with endoflife.date API and generate build matrix
-#   update-metadata   - Update metadata-services.json with build results
+#   check-versions    - Compare metadata with recipe versions and generate build matrix
+#   update-metadata   - Update metadata-services-{arch}.json with build results
 
 # ================================
 # CONFIGURATION
@@ -19,7 +19,12 @@ CONFIG_PATH="${SCRIPT_DIR}/../config/services-config.sh"
 # shellcheck source=../config/services-config.sh
 source "$CONFIG_PATH"
 
-METADATA_FILE="${METADATA_FILE:-metadata-services.json}"
+# Supported architectures and their runners
+declare -A ARCH_RUNNERS=(
+    ["arm64"]="macos-26"
+    ["x86_64"]="macos-15-intel"
+)
+SUPPORTED_ARCHS="arm64 x86_64"
 
 # ================================
 # UTILITY FUNCTIONS
@@ -36,6 +41,12 @@ log_error() {
 
 check_prerequisites() {
     command -v jq >/dev/null 2>&1 || log_error "jq is required but not installed"
+}
+
+# Get metadata filename for a specific architecture
+get_metadata_file() {
+    local arch="$1"
+    echo "metadata-services-${arch}.json"
 }
 
 # ================================
@@ -74,14 +85,19 @@ get_version_from_recipe() {
 check_versions() {
     log_info "Checking service versions..."
 
-    # Initialize or load existing metadata
-    local metadata='{}'
-    if [[ -f "$METADATA_FILE" ]]; then
-        metadata=$(cat "$METADATA_FILE")
-        log_info "Loaded existing metadata"
-    else
-        log_info "Creating new metadata"
-    fi
+    # Load metadata for each architecture
+    declare -A metadata_by_arch
+    for arch in $SUPPORTED_ARCHS; do
+        local metadata_file
+        metadata_file=$(get_metadata_file "$arch")
+        if [[ -f "$metadata_file" ]]; then
+            metadata_by_arch[$arch]=$(cat "$metadata_file")
+            log_info "Loaded existing metadata for $arch"
+        else
+            metadata_by_arch[$arch]='{}'
+            log_info "No metadata found for $arch (will create)"
+        fi
+    done
 
     # Build matrix array
     local matrix_items=()
@@ -119,21 +135,27 @@ check_versions() {
                 continue
             fi
 
-            # Get current version from metadata (if exists)
-            local metadata_latest
-            metadata_latest=$(echo "$metadata" | jq -r ".\"$service\".\"$major\".latest // \"\"")
+            # Check each architecture
+            for arch in $SUPPORTED_ARCHS; do
+                local metadata="${metadata_by_arch[$arch]}"
+                local runs_on="${ARCH_RUNNERS[$arch]}"
 
-            # Compare versions
-            if [[ "$recipe_version" != "$metadata_latest" ]]; then
-                if [[ -z "$metadata_latest" ]]; then
-                    log_info "New: ${service} ${major} -> ${recipe_version} (recipe: ${recipe_name})"
-                else
-                    log_info "Update: ${service} ${major} -> ${recipe_version} (was: ${metadata_latest}, recipe: ${recipe_name})"
+                # Get current version from metadata (if exists)
+                local metadata_latest
+                metadata_latest=$(echo "$metadata" | jq -r ".\"$service\".\"$major\".latest // \"\"")
+
+                # Compare versions
+                if [[ "$recipe_version" != "$metadata_latest" ]]; then
+                    if [[ -z "$metadata_latest" ]]; then
+                        log_info "New: ${service} ${major} ${arch} -> ${recipe_version}"
+                    else
+                        log_info "Update: ${service} ${major} ${arch} -> ${recipe_version} (was: ${metadata_latest})"
+                    fi
+
+                    # Add to build matrix with recipe name, arch, and runs-on
+                    matrix_items+=("{\"service\": \"$service\", \"version\": \"$recipe_version\", \"major\": \"$major\", \"recipe\": \"$recipe_name\", \"arch\": \"$arch\", \"runs-on\": \"$runs_on\"}")
                 fi
-
-                # Add to build matrix with recipe name
-                matrix_items+=("{\"service\": \"$service\", \"version\": \"$recipe_version\", \"major\": \"$major\", \"recipe\": \"$recipe_name\"}")
-            fi
+            done
         done
     done
 
@@ -162,10 +184,18 @@ check_versions() {
 # ================================
 
 update_metadata() {
+    local arch="${1:-}"
+    if [[ -z "$arch" ]]; then
+        log_error "Usage: update-metadata <arch>"
+    fi
+
+    local metadata_file
+    metadata_file=$(get_metadata_file "$arch")
+
     # Load existing metadata or create new
     local metadata='{}'
-    if [[ -f "$METADATA_FILE" ]]; then
-        metadata=$(cat "$METADATA_FILE")
+    if [[ -f "$metadata_file" ]]; then
+        metadata=$(cat "$metadata_file")
     fi
 
     # Read checksums from stdin (format: service,version,major,sha256,filename)
@@ -173,12 +203,15 @@ update_metadata() {
     checksums_input=$(cat)
 
     if [[ -z "$checksums_input" ]]; then
-        log_error "No checksums provided via stdin"
+        log_info "No checksums provided for $arch (skipping)"
+        return 0
     fi
 
     # Process each checksum line
     while IFS=',' read -r service version major sha256 filename; do
         [[ -z "$service" ]] && continue
+
+        log_info "Updating $service $major ($arch): $version"
 
         # Update metadata using jq
         metadata=$(echo "$metadata" | jq -c \
@@ -216,8 +249,8 @@ update_metadata() {
     done
 
     # Save updated metadata
-    echo "$metadata" | jq '.' > "$METADATA_FILE"
-    log_info "Metadata updated: $METADATA_FILE"
+    echo "$metadata" | jq '.' > "$metadata_file"
+    log_info "Metadata updated: $metadata_file"
 }
 
 # ================================
@@ -233,10 +266,11 @@ main() {
             check_versions
             ;;
         update-metadata)
-            update_metadata
+            shift
+            update_metadata "$@"
             ;;
         *)
-            log_error "Usage: $0 {check-versions|update-metadata}"
+            log_error "Usage: $0 {check-versions|update-metadata <arch>}"
             ;;
     esac
 }

@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/bash
+#!/usr/bin/env bash
 
 # Build packages from source using recipe files
 # Usage: ./build-from-recipes.sh <package-name> [--staging <dir>]
@@ -22,6 +22,9 @@ RECIPES_DIR="${SCRIPT_DIR}/recipes"
 BUILD_DIR="${SCRIPT_DIR}/build"
 export DOWNLOADS_DIR="${BUILD_DIR}/downloads"
 SOURCES_DIR="${BUILD_DIR}/src"
+
+# Architecture (can be overridden via ARCH env var)
+ARCH="${ARCH:-$(uname -m)}"
 
 # Load library functions
 source "${SCRIPT_DIR}/lib/colors.sh"
@@ -289,8 +292,8 @@ echo -e ""
 # Create archive for upload to R2
 echo -e "${GREEN}━━━ Creating portable archive ━━━${NC}"
 
-# Archive name format: {service}-{version}.tar.gz (matches R2 metadata format)
-ARCHIVE_NAME="${BASE_NAME}-${PKG_VERSION}.tar.gz"
+# Archive name format: {service}-{version}-{arch}.tar.gz (matches R2 metadata format)
+ARCHIVE_NAME="${BASE_NAME}-${PKG_VERSION}-${ARCH}.tar.gz"
 TEMP_BUNDLE="${BUILD_DIR}/${BASE_NAME}-${PKG_VERSION}"
 
 echo -e "${BLUE}→ Preparing bundle structure...${NC}"

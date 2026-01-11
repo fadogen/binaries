@@ -1,21 +1,16 @@
 #!/bin/bash
-# Build recipe for Valkey
-# Translated from: homebrew-core/Formula/v/valkey.rb
+# Build recipe for valkey
 # Description: High-performance data structure server that primarily serves key/value workloads
 
 set -e
 
-# Load helpers
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/recipe-helpers.sh"
-
 # Metadata
-export PACKAGE_VERSION="9.0.0"
-export PACKAGE_SHA256="088f47e167eb640ea31af48c81c5d62ee56321f25a4b05d4e54a0ef34232724b"
+export PACKAGE_NAME="valkey"
+export PACKAGE_VERSION="9.0.1"
+export PACKAGE_SHA256="9cfbc5f32a2a6058ee0f8c532b9c4d24167cc49d719f091dd75f1bb8353a1fc5"
 
-# Derived automatically
-PACKAGE_NAME="$(get_package_name)"
-PACKAGE_URL="$(get_package_url valkey "$PACKAGE_VERSION")"
-export PACKAGE_NAME PACKAGE_URL
+# Derived from version
+export PACKAGE_URL="https://github.com/valkey-io/${PACKAGE_NAME}/archive/refs/tags/${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies
 export DEPENDENCIES=(

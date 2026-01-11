@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for abseil 20250814.1
-# Translated from: homebrew-core/Formula/a/abseil.rb
+# Build recipe for abseil
 # Description: C++ Common Libraries
 
 set -e
@@ -8,10 +7,12 @@ set -e
 # Metadata
 export PACKAGE_NAME="abseil"
 export PACKAGE_VERSION="20250814.1"
-export PACKAGE_URL="https://github.com/abseil/abseil-cpp/archive/refs/tags/20250814.1.tar.gz"
 export PACKAGE_SHA256="1692f77d1739bacf3f94337188b78583cf09bab7e420d2dc6c5605a4f86785a1"
 
-# Runtime dependencies
+# Derived from version
+export PACKAGE_URL="https://github.com/abseil/abseil-cpp/archive/refs/tags/${PACKAGE_VERSION}.tar.gz"
+
+# No runtime dependencies
 export DEPENDENCIES=()
 
 # Build dependencies (via Homebrew, not in bundle)

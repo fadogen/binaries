@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for msgpack 6.1.0
-# Translated from: homebrew-core/Formula/m/msgpack.rb
+# Build recipe for msgpack
 # Description: Library for a binary-based efficient data interchange format
 
 set -e
@@ -8,8 +7,10 @@ set -e
 # Metadata
 export PACKAGE_NAME="msgpack"
 export PACKAGE_VERSION="6.1.0"
-export PACKAGE_URL="https://github.com/msgpack/msgpack-c/releases/download/c-6.1.0/msgpack-c-6.1.0.tar.gz"
 export PACKAGE_SHA256="674119f1a85b5f2ecc4c7d5c2859edf50c0b05e0c10aa0df85eefa2c8c14b796"
+
+# Derived from version (msgpack-c uses c-VERSION tag format)
+export PACKAGE_URL="https://github.com/msgpack/msgpack-c/releases/download/c-${PACKAGE_VERSION}/msgpack-c-${PACKAGE_VERSION}.tar.gz"
 
 # No runtime dependencies
 export DEPENDENCIES=()

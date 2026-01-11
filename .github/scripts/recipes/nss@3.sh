@@ -28,7 +28,11 @@ build() {
 
     # Ensure python (not just python3) is in PATH for NSS build system
     if ! command -v python >/dev/null 2>&1; then
-        export PATH="/opt/homebrew/opt/python/libexec/bin:$PATH"
+        if [[ -d "/opt/homebrew/opt/python/libexec/bin" ]]; then
+            export PATH="/opt/homebrew/opt/python/libexec/bin:$PATH"
+        else
+            export PATH="/usr/local/opt/python/libexec/bin:$PATH"  # Intel Mac
+        fi
     fi
 
     # Install build tools in temporary venv (PEP 668 compliant)

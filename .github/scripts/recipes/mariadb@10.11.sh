@@ -1,21 +1,16 @@
 #!/bin/bash
-# Build recipe for MariaDB 10.x
-# Translated from: homebrew-core/Formula/m/mariadb@10.11.rb
+# Build recipe for mariadb@10.11
 # Description: Drop-in replacement for MySQL
 
 set -e
 
-# Load helpers
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/recipe-helpers.sh"
-
 # Metadata
+export PACKAGE_NAME="mariadb@10.11"
 export PACKAGE_VERSION="10.11.15"
 export PACKAGE_SHA256="5311e85765402bde5a81a9a7b2643a7378d20316a2822bfad4b6ddcf104759a5"
 
-# Derived automatically
-PACKAGE_NAME="$(get_package_name)"
-PACKAGE_URL="$(get_package_url mariadb "$PACKAGE_VERSION")"
-export PACKAGE_NAME PACKAGE_URL
+# Derived from version
+export PACKAGE_URL="https://archive.mariadb.org/mariadb-${PACKAGE_VERSION}/source/mariadb-${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies
 export DEPENDENCIES=(
@@ -74,6 +69,9 @@ build() {
 
     # Find Homebrew fmt location
     local FMT_DIR="/opt/homebrew/opt/fmt"
+    if [ ! -d "$FMT_DIR" ]; then
+        FMT_DIR="/usr/local/opt/fmt"  # Intel Mac
+    fi
 
     # Configure with CMake
     # -DINSTALL_* are relative to CMAKE_INSTALL_PREFIX

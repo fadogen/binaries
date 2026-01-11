@@ -1,15 +1,16 @@
 #!/bin/bash
-# Build recipe for protobuf 33.1
-# Translated from: homebrew-core/Formula/p/protobuf.rb
+# Build recipe for protobuf
 # Description: Protocol Buffers - Google's data interchange format
 
 set -e
 
 # Metadata
 export PACKAGE_NAME="protobuf"
-export PACKAGE_VERSION="33.1"
-export PACKAGE_URL="https://github.com/protocolbuffers/protobuf/releases/download/v33.1/protobuf-33.1.tar.gz"
-export PACKAGE_SHA256="fda132cb0c86400381c0af1fe98bd0f775cb566cb247cdcc105e344e00acc30e"
+export PACKAGE_VERSION="33.2"
+export PACKAGE_SHA256="6b6599b54c88d75904b7471f5ca34a725fa0af92e134dd1a32d5b395aa4b4ca8"
+
+# Derived from version
+export PACKAGE_URL="https://github.com/protocolbuffers/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies
 export DEPENDENCIES=(

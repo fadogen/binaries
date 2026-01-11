@@ -1,14 +1,16 @@
 #!/bin/bash
-# Build recipe for OpenSSL 3.6.0
-# Translated from: homebrew-core/Formula/o/openssl@3.rb
+# Build recipe for openssl
+# Description: Cryptography and SSL/TLS toolkit
 
 set -e
 
 # Metadata
 export PACKAGE_NAME="openssl@3"
 export PACKAGE_VERSION="3.6.0"
-export PACKAGE_URL="https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz"
 export PACKAGE_SHA256="b6a5f44b7eb69e3fa35dbf15524405b44837a481d43d81daddde3ff21fcbb8e9"
+
+# Derived from version
+export PACKAGE_URL="https://github.com/openssl/openssl/releases/download/openssl-${PACKAGE_VERSION}/openssl-${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies
 export DEPENDENCIES=(
@@ -20,7 +22,7 @@ build() {
     local PREFIX="$1"
     local SOURCE_DIR="$2"
 
-    echo "Building openssl@3 ${PACKAGE_VERSION}..."
+    echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
     # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
@@ -30,9 +32,17 @@ build() {
 
     cd "${SOURCE_DIR}"
 
-    # Configure for macOS ARM64
+    # Detect architecture
+    local OPENSSL_TARGET
+    if [[ "$(uname -m)" == "arm64" ]]; then
+        OPENSSL_TARGET="darwin64-arm64-cc"
+    else
+        OPENSSL_TARGET="darwin64-x86_64-cc"
+    fi
+
+    # Configure for macOS
     ./Configure \
-        darwin64-arm64-cc \
+        "$OPENSSL_TARGET" \
         --prefix="${PREFIX}" \
         --openssldir="${PREFIX}/etc/openssl@3" \
         --libdir=lib \
@@ -47,7 +57,7 @@ build() {
     # Install directly to final location
     make install_sw install_ssldirs
 
-    echo "✓ openssl@3 built successfully"
+    echo "✓ ${PACKAGE_NAME} built successfully"
 }
 
 # Post-install: Link ca-certificates to OpenSSL

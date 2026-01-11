@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for libunistring 1.4.1
-# Translated from: homebrew-core/Formula/lib/libunistring.rb
+# Build recipe for libunistring
 # Description: C string library for manipulating Unicode strings
 
 set -e
@@ -8,12 +7,13 @@ set -e
 # Metadata
 export PACKAGE_NAME="libunistring"
 export PACKAGE_VERSION="1.4.1"
-export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/libunistring/libunistring-1.4.1.tar.gz"
 export PACKAGE_SHA256="12542ad7619470efd95a623174dcd4b364f2483caf708c6bee837cb53a54cb9d"
 
-# Runtime dependencies
-export DEPENDENCIES=(
-)
+# Derived from version
+export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
+
+# No runtime dependencies
+export DEPENDENCIES=()
 
 # Build function
 build() {

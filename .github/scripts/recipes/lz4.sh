@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for lz4 1.10.0
-# Translated from: homebrew-core/Formula/l/lz4.rb
+# Build recipe for lz4
 # Description: Extremely Fast Compression algorithm
 
 set -e
@@ -8,12 +7,13 @@ set -e
 # Metadata
 export PACKAGE_NAME="lz4"
 export PACKAGE_VERSION="1.10.0"
-export PACKAGE_URL="https://github.com/lz4/lz4/archive/refs/tags/v1.10.0.tar.gz"
 export PACKAGE_SHA256="537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b"
 
-# Runtime dependencies
-export DEPENDENCIES=(
-)
+# Derived from version
+export PACKAGE_URL="https://github.com/${PACKAGE_NAME}/${PACKAGE_NAME}/archive/refs/tags/v${PACKAGE_VERSION}.tar.gz"
+
+# No runtime dependencies
+export DEPENDENCIES=()
 
 # Build function
 build() {

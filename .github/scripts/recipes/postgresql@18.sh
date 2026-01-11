@@ -1,21 +1,16 @@
 #!/bin/bash
-# Build recipe for PostgreSQL 18.x
-# Translated from: homebrew-core/Formula/p/postgresql@18.rb
+# Build recipe for postgresql@18
 # Description: Object-relational database system
 
 set -e
 
-# Load helpers
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/recipe-helpers.sh"
-
 # Metadata
+export PACKAGE_NAME="postgresql@18"
 export PACKAGE_VERSION="18.1"
 export PACKAGE_SHA256="ff86675c336c46e98ac991ebb306d1b67621ece1d06787beaade312c2c915d54"
 
-# Derived automatically
-PACKAGE_NAME="$(get_package_name)"
-PACKAGE_URL="$(get_package_url postgresql "$PACKAGE_VERSION")"
-export PACKAGE_NAME PACKAGE_URL
+# Derived from version
+export PACKAGE_URL="https://ftp.postgresql.org/pub/source/v${PACKAGE_VERSION}/postgresql-${PACKAGE_VERSION}.tar.bz2"
 
 # Runtime dependencies
 export DEPENDENCIES=(

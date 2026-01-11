@@ -1,21 +1,16 @@
 #!/bin/bash
-# Build recipe for Redis 8.x
-# Translated from: homebrew-core/Formula/r/redis.rb
+# Build recipe for redis@8
 # Description: Persistent key-value database, with built-in net interface
 
 set -e
 
-# Load helpers
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/recipe-helpers.sh"
-
 # Metadata
+export PACKAGE_NAME="redis@8"
 export PACKAGE_VERSION="8.4.0"
 export PACKAGE_SHA256="ca909aa15252f2ecb3a048cd086469827d636bf8334f50bb94d03fba4bfc56e8"
 
-# Derived automatically
-PACKAGE_NAME="$(get_package_name)"
-PACKAGE_URL="$(get_package_url redis "$PACKAGE_VERSION")"
-export PACKAGE_NAME PACKAGE_URL
+# Derived from version
+export PACKAGE_URL="https://download.redis.io/releases/redis-${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies
 export DEPENDENCIES=(

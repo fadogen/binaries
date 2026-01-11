@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for mecab 0.996
-# Translated from: homebrew-core/Formula/m/mecab.rb
+# Build recipe for mecab
 # Description: Yet another part-of-speech and morphological analyzer
 
 set -e
@@ -8,14 +7,13 @@ set -e
 # Metadata
 export PACKAGE_NAME="mecab"
 export PACKAGE_VERSION="0.996"
-export PACKAGE_URL="https://deb.debian.org/debian/pool/main/m/mecab/mecab_0.996.orig.tar.gz"
 export PACKAGE_SHA256="e073325783135b72e666145c781bb48fada583d5224fb2490fb6c1403ba69c59"
+
+# Derived from version (Debian pool format)
+export PACKAGE_URL="https://deb.debian.org/debian/pool/main/m/${PACKAGE_NAME}/${PACKAGE_NAME}_${PACKAGE_VERSION}.orig.tar.gz"
 
 # No runtime dependencies
 export DEPENDENCIES=()
-
-# Build dependencies (via Homebrew, not in bundle)
-export BUILD_DEPENDENCIES=()
 
 # Build function
 build() {

@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for zlib 1.3.1
-# Translated from: homebrew-core/Formula/z/zlib.rb
+# Build recipe for zlib
 # Description: General-purpose lossless data-compression library
 
 set -e
@@ -8,10 +7,12 @@ set -e
 # Metadata
 export PACKAGE_NAME="zlib"
 export PACKAGE_VERSION="1.3.1"
-export PACKAGE_URL="https://zlib.net/zlib-1.3.1.tar.gz"
 export PACKAGE_SHA256="9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23"
 
-# Runtime dependencies
+# Derived from version
+export PACKAGE_URL="https://zlib.net/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
+
+# No runtime dependencies
 export DEPENDENCIES=()
 
 # Build function

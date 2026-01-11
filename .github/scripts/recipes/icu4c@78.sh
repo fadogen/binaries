@@ -1,15 +1,16 @@
 #!/bin/bash
-# Build recipe for ICU4C 78.1
-# Translated from: homebrew-core/Formula/i/icu4c@78.rb
-# ICU = International Components for Unicode (C/C++ and Java libraries)
+# Build recipe for icu4c
+# Description: International Components for Unicode (C/C++ libraries)
 
 set -e
 
 # Metadata
 export PACKAGE_NAME="icu4c@78"
-export PACKAGE_VERSION="78.1"
-export PACKAGE_URL="https://github.com/unicode-org/icu/releases/download/release-78.1/icu4c-78.1-sources.tgz"
-export PACKAGE_SHA256="6217f58ca39b23127605cfc6c7e0d3475fe4b0d63157011383d716cb41617886"
+export PACKAGE_VERSION="78.2"
+export PACKAGE_SHA256="3e99687b5c435d4b209630e2d2ebb79906c984685e78635078b672e03c89df35"
+
+# Derived from version
+export PACKAGE_URL="https://github.com/unicode-org/icu/releases/download/release-${PACKAGE_VERSION}/icu4c-${PACKAGE_VERSION}-sources.tgz"
 
 # No runtime dependencies (keg_only, self-contained)
 export DEPENDENCIES=()
@@ -19,7 +20,7 @@ build() {
     local PREFIX="$1"
     local SOURCE_DIR="$2"
 
-    echo "Building icu4c@78 ${PACKAGE_VERSION}..."
+    echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
     # ICU builds from the "source" subdirectory
     cd "${SOURCE_DIR}/source"
@@ -45,5 +46,5 @@ build() {
     # Install directly to final location
     make install
 
-    echo "✓ icu4c@78 built successfully"
+    echo "✓ ${PACKAGE_NAME} built successfully"
 }

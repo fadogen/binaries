@@ -1,21 +1,17 @@
 #!/bin/bash
-# Build recipe for MySQL 8.x
-# Translated from: homebrew-core/Formula/m/mysql@8.4.rb
+# Build recipe for mysql@8.4
 # Description: Open source relational database management system
 
 set -e
 
-# Load helpers
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/recipe-helpers.sh"
-
 # Metadata
+export PACKAGE_NAME="mysql@8.4"
 export PACKAGE_VERSION="8.4.7"
 export PACKAGE_SHA256="c0bf33a94cdb908f149aea0797affb1b139262ccf0e0b9787a17246207542e69"
 
-# Derived automatically
-PACKAGE_NAME="$(get_package_name)"
-PACKAGE_URL="$(get_package_url mysql "$PACKAGE_VERSION")"
-export PACKAGE_NAME PACKAGE_URL
+# Derived from version (major.minor for download path)
+MYSQL_MAJOR_MINOR="${PACKAGE_VERSION%.*}"
+export PACKAGE_URL="https://cdn.mysql.com/Downloads/MySQL-${MYSQL_MAJOR_MINOR}/mysql-${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies
 export DEPENDENCIES=(

@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for pcre2 10.47
-# Translated from: homebrew-core/Formula/p/pcre2.rb
+# Build recipe for pcre2
 # Description: Perl compatible regular expressions library with a new API
 
 set -e
@@ -8,14 +7,13 @@ set -e
 # Metadata
 export PACKAGE_NAME="pcre2"
 export PACKAGE_VERSION="10.47"
-export PACKAGE_URL="https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.bz2"
 export PACKAGE_SHA256="47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7"
 
-# No runtime dependencies (uses system bzip2 and zlib)
-export DEPENDENCIES=()
+# Derived from version
+export PACKAGE_URL="https://github.com/PCRE2Project/${PACKAGE_NAME}/releases/download/${PACKAGE_NAME}-${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.bz2"
 
-# Build dependencies (via Homebrew, not in bundle)
-export BUILD_DEPENDENCIES=()
+# No runtime dependencies
+export DEPENDENCIES=()
 
 # Build function
 build() {

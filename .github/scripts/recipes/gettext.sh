@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for gettext 0.26
-# Translated from: homebrew-core/Formula/g/gettext.rb
+# Build recipe for gettext
 # Description: GNU internationalization (i18n) and localization (l10n) library
 
 set -e
@@ -8,8 +7,10 @@ set -e
 # Metadata
 export PACKAGE_NAME="gettext"
 export PACKAGE_VERSION="0.26"
-export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/gettext/gettext-0.26.tar.gz"
 export PACKAGE_SHA256="39acf4b0371e9b110b60005562aace5b3631fed9b1bb9ecccfc7f56e58bb1d7f"
+
+# Derived from version
+export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies
 export DEPENDENCIES=(

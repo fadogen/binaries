@@ -1,6 +1,5 @@
 #!/bin/bash
-# Build recipe for zstd 1.5.7
-# Translated from: homebrew-core/Formula/z/zstd.rb
+# Build recipe for zstd
 # Description: Zstandard is a real-time compression algorithm
 
 set -e
@@ -8,8 +7,10 @@ set -e
 # Metadata
 export PACKAGE_NAME="zstd"
 export PACKAGE_VERSION="1.5.7"
-export PACKAGE_URL="https://github.com/facebook/zstd/archive/refs/tags/v1.5.7.tar.gz"
 export PACKAGE_SHA256="37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3"
+
+# Derived from version
+export PACKAGE_URL="https://github.com/facebook/${PACKAGE_NAME}/archive/refs/tags/v${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies
 export DEPENDENCIES=(

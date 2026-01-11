@@ -1,19 +1,19 @@
 #!/bin/bash
-# Build recipe for xz 5.8.1
-# Translated from: homebrew-core/Formula/x/xz.rb
+# Build recipe for xz
 # Description: General-purpose data compression with high compression ratio
 
 set -e
 
 # Metadata
 export PACKAGE_NAME="xz"
-export PACKAGE_VERSION="5.8.1"
-export PACKAGE_URL="https://github.com/tukaani-project/xz/releases/download/v5.8.1/xz-5.8.1.tar.gz"
-export PACKAGE_SHA256="507825b599356c10dca1cd720c9d0d0c9d5400b9de300af00e4d1ea150795543"
+export PACKAGE_VERSION="5.8.2"
+export PACKAGE_SHA256="ce09c50a5962786b83e5da389c90dd2c15ecd0980a258dd01f70f9e7ce58a8f1"
 
-# Runtime dependencies
-export DEPENDENCIES=(
-)
+# Derived from version
+export PACKAGE_URL="https://github.com/tukaani-project/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
+
+# No runtime dependencies
+export DEPENDENCIES=()
 
 # Build function
 build() {

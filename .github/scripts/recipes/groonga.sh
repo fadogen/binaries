@@ -1,15 +1,19 @@
 #!/bin/bash
-# Build recipe for groonga 15.2.0
-# Translated from: homebrew-core/Formula/g/groonga.rb
+# Build recipe for groonga
 # Description: Fulltext search engine and column store
 
 set -e
 
 # Metadata
 export PACKAGE_NAME="groonga"
-export PACKAGE_VERSION="15.2.0"
-export PACKAGE_URL="https://github.com/groonga/groonga/releases/download/v15.2.0/groonga-15.2.0.tar.gz"
-export PACKAGE_SHA256="068a5cb0b32352e0c04f1a5a800259ea5bb740800add7c9b786d052e16da7ad9"
+export PACKAGE_VERSION="15.2.1"
+export PACKAGE_SHA256="77d9aa56e33c0986bbec6ddd2ee897aba6c347cff45fce988f2708145e0c9d77"
+
+# Derived from version
+export PACKAGE_URL="https://github.com/groonga/groonga/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
+
+# groonga-normalizer-mysql version
+NORMALIZER_VERSION="1.3.0"
 
 # Runtime dependencies
 export DEPENDENCIES=(
@@ -65,13 +69,10 @@ build() {
     make install
 
     # Build and install groonga-normalizer-mysql resource
-    echo "→ Building groonga-normalizer-mysql..."
+    echo "→ Building groonga-normalizer-mysql ${NORMALIZER_VERSION}..."
     cd "${SOURCE_DIR}"
-    local NORMALIZER_DIR="groonga-normalizer-mysql-1.2.9"
-    curl -L "https://github.com/groonga/groonga-normalizer-mysql/releases/download/v1.2.9/groonga-normalizer-mysql-1.2.9.tar.gz" \
-        | tar xz
-
-    cd "${NORMALIZER_DIR}"
+    curl -L "https://github.com/groonga/groonga-normalizer-mysql/releases/download/v${NORMALIZER_VERSION}/groonga-normalizer-mysql-${NORMALIZER_VERSION}.tar.gz" | tar xz
+    cd "groonga-normalizer-mysql-${NORMALIZER_VERSION}"
 
     # Ensure groonga tools are in PATH and PKG_CONFIG_PATH is set
     export PATH="${PREFIX}/bin:${PATH}"
