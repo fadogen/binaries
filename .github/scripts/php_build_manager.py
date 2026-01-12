@@ -11,16 +11,20 @@ import subprocess
 from pathlib import Path
 
 FRANKENPHP_VERSIONS_FILE = 'frankenphp_versions.txt'
+ALL_OS = ['darwin', 'linux']
 ALL_ARCHS = ['arm64', 'x86_64']
-ARCH_CONFIG = {
-    'arm64': {'runner': 'macos-26', 'spc_binary': 'spc-macos-aarch64'},
-    'x86_64': {'runner': 'macos-15-intel', 'spc_binary': 'spc-macos-x86_64'}
+
+TARGET_CONFIG = {
+    ('darwin', 'arm64'): {'runner': 'macos-26', 'spc_binary': 'spc-macos-aarch64'},
+    ('darwin', 'x86_64'): {'runner': 'macos-15-intel', 'spc_binary': 'spc-macos-x86_64'},
+    ('linux', 'arm64'): {'runner': 'ubuntu-24.04-arm', 'spc_binary': 'spc-linux-aarch64'},
+    ('linux', 'x86_64'): {'runner': 'ubuntu-24.04', 'spc_binary': 'spc-linux-x86_64'},
 }
 
 
-def get_metadata_file(arch):
-    """Get metadata filename for a specific architecture."""
-    return f'metadata-php-{arch}.json'
+def get_metadata_file(os_name, arch):
+    """Get metadata filename for a specific os+architecture."""
+    return f'metadata-php-{os_name}-{arch}.json'
 
 
 def load_json(filepath):
@@ -35,9 +39,9 @@ def save_json(data, filepath):
         json.dump(data, f, indent=2)
 
 
-def get_archive_filename(full_version, arch):
-    """Generate filename with architecture suffix."""
-    return f"php-{full_version}-{arch}.tar.gz"
+def get_archive_filename(full_version, os_name, arch):
+    """Generate filename with os and architecture suffix."""
+    return f"php-{full_version}-{os_name}-{arch}.tar.gz"
 
 
 def fetch_version_details(version):
@@ -53,14 +57,16 @@ def check_versions():
     """Check PHP versions and generate build matrix."""
     api_data = load_json('api_response.json')
 
-    # Load metadata for all architectures
-    metadata_by_arch = {}
-    for arch in ALL_ARCHS:
-        metadata_file = get_metadata_file(arch)
-        if Path(metadata_file).exists():
-            metadata_by_arch[arch] = load_json(metadata_file)
-        else:
-            metadata_by_arch[arch] = {}
+    # Load metadata for all os+arch combinations
+    metadata_by_target = {}
+    for os_name in ALL_OS:
+        for arch in ALL_ARCHS:
+            key = (os_name, arch)
+            metadata_file = get_metadata_file(os_name, arch)
+            if Path(metadata_file).exists():
+                metadata_by_target[key] = load_json(metadata_file)
+            else:
+                metadata_by_target[key] = {}
 
     build_matrix = []
     eol_versions = []
@@ -71,10 +77,10 @@ def check_versions():
             allowed_versions = [v.strip() for v in f.read().strip().split(',') if v.strip()]
         print(f"Allowed PHP versions from serversideup: {allowed_versions}")
     else:
-        # Fallback: use existing metadata keys if available (from any arch)
+        # Fallback: use existing metadata keys if available (from any target)
         all_keys = set()
-        for arch_metadata in metadata_by_arch.values():
-            all_keys.update(arch_metadata.keys())
+        for target_metadata in metadata_by_target.values():
+            all_keys.update(target_metadata.keys())
         if all_keys:
             allowed_versions = list(all_keys)
             print(f"Warning: FrankenPHP versions file not found, using existing metadata keys: {allowed_versions}")
@@ -108,40 +114,42 @@ def check_versions():
 
         api_release = version_details.get('date', '')
 
-        # Check each architecture independently
-        for arch in ALL_ARCHS:
-            metadata = metadata_by_arch[arch]
+        # Check each os+arch combination independently
+        for (os_name, arch), config in TARGET_CONFIG.items():
+            key = (os_name, arch)
+            metadata = metadata_by_target[key]
             need_build = False
 
             if major_minor not in metadata:
                 need_build = True
-                print(f"New version detected: {full_version} ({arch})")
+                print(f"New version detected: {full_version} ({os_name}/{arch})")
             else:
                 metadata_release = metadata[major_minor].get('releaseDate', '')
                 if api_release != metadata_release:
                     need_build = True
-                    print(f"Updated version detected: {full_version} ({arch})")
+                    print(f"Updated version detected: {full_version} ({os_name}/{arch})")
 
             if need_build:
-                config = ARCH_CONFIG[arch]
                 build_matrix.append({
                     'php-version': major_minor,
                     'full-version': full_version,
+                    'os': os_name,
                     'arch': arch,
                     'runs-on': config['runner'],
                     'spc-binary': config['spc_binary'],
                     'releaseDate': api_release
                 })
 
-    # Collect EOL versions from all architectures
+    # Collect EOL versions from all targets
     all_metadata_keys = set()
-    for arch_metadata in metadata_by_arch.values():
-        all_metadata_keys.update(arch_metadata.keys())
+    for target_metadata in metadata_by_target.values():
+        all_metadata_keys.update(target_metadata.keys())
 
     for major_minor in all_metadata_keys:
         if major_minor not in supported_versions:
             eol_versions.append(major_minor)
             print(f"EOL version detected: {major_minor}")
+
     matrix_json = json.dumps({'include': build_matrix})
     eol_json = json.dumps(eol_versions)
     should_build = 'true' if build_matrix else 'false'
@@ -156,9 +164,9 @@ def check_versions():
         f.write(f'supported-versions={json.dumps(supported_versions)}\n')
 
 
-def create_archive(php_version, arch):
+def create_archive(php_version, os_name, arch):
     """Create tar.gz archive containing CLI, FPM binaries and shared extensions."""
-    archive_name = get_archive_filename(php_version, arch)
+    archive_name = get_archive_filename(php_version, os_name, arch)
 
     with tarfile.open(archive_name, 'w:gz') as tar:
         tar.add('buildroot/bin/php', arcname='php-cli')
@@ -178,83 +186,87 @@ def create_archive(php_version, arch):
 
 
 def update_metadata(build_matrix_json, archive_checksums, supported_versions_json):
-    """Update metadata files per architecture with build results."""
+    """Update metadata files per os+architecture with build results."""
     build_matrix = json.loads(build_matrix_json)
     supported_versions = json.loads(supported_versions_json)
 
-    # Parse checksums: format is "version,arch,sha256,filename"
+    # Parse checksums: format is "version,os,arch,sha256,filename"
     checksums_map = {}
     for line in archive_checksums.strip().split('\n'):
         if line:
             parts = line.split(',')
-            if len(parts) != 4:
-                raise ValueError(f"Invalid checksum format - expected version,arch,sha256,filename: {line}")
+            if len(parts) != 5:
+                raise ValueError(f"Invalid checksum format - expected version,os,arch,sha256,filename: {line}")
 
-            version, arch, sha256, filename = parts
-            if arch not in checksums_map:
-                checksums_map[arch] = {}
-            checksums_map[arch][version] = {
+            version, os_name, arch, sha256, filename = parts
+            key = (os_name, arch)
+            if key not in checksums_map:
+                checksums_map[key] = {}
+            checksums_map[key][version] = {
                 'sha256': sha256,
                 'filename': filename
             }
 
-    # Update metadata per architecture
-    for arch in ALL_ARCHS:
-        metadata_file = get_metadata_file(arch)
-        metadata = load_json(metadata_file) if Path(metadata_file).exists() else {}
+    # Update metadata per os+architecture
+    for os_name in ALL_OS:
+        for arch in ALL_ARCHS:
+            key = (os_name, arch)
+            metadata_file = get_metadata_file(os_name, arch)
+            metadata = load_json(metadata_file) if Path(metadata_file).exists() else {}
 
-        for build in build_matrix.get('include', []):
-            if build.get('arch') != arch:
-                continue
+            for build in build_matrix.get('include', []):
+                if build.get('os') != os_name or build.get('arch') != arch:
+                    continue
 
-            major_minor = build['php-version']
-            full_version = build['full-version']
+                major_minor = build['php-version']
+                full_version = build['full-version']
 
-            if arch not in checksums_map or full_version not in checksums_map[arch]:
-                print(f"Skipping {full_version} ({arch}) - no checksum (build may have failed)")
-                continue
+                if key not in checksums_map or full_version not in checksums_map[key]:
+                    print(f"Skipping {full_version} ({os_name}/{arch}) - no checksum (build may have failed)")
+                    continue
 
-            release_date = build.get('releaseDate', '')
-            checksum_data = checksums_map[arch][full_version]
+                release_date = build.get('releaseDate', '')
+                checksum_data = checksums_map[key][full_version]
 
-            metadata[major_minor] = {
-                'latest': full_version,
-                'releaseDate': release_date,
-                'filename': checksum_data['filename'],
-                'sha256': checksum_data['sha256'],
-                'isEol': major_minor not in supported_versions
-            }
+                metadata[major_minor] = {
+                    'latest': full_version,
+                    'releaseDate': release_date,
+                    'filename': checksum_data['filename'],
+                    'sha256': checksum_data['sha256'],
+                    'isEol': major_minor not in supported_versions
+                }
 
-            print(f"Updated {major_minor} ({arch}) -> {full_version}")
+                print(f"Updated {major_minor} ({os_name}/{arch}) -> {full_version}")
 
-        # Update isEol for all existing versions
-        for version_key in metadata:
-            metadata[version_key]['isEol'] = version_key not in supported_versions
+            # Update isEol for all existing versions
+            for version_key in metadata:
+                metadata[version_key]['isEol'] = version_key not in supported_versions
 
-        save_json(metadata, metadata_file)
-        print(f"Updated {metadata_file} for {len(metadata)} PHP versions")
+            save_json(metadata, metadata_file)
+            print(f"Updated {metadata_file} for {len(metadata)} PHP versions")
 
 
 def cleanup_eol(eol_versions_json):
-    """Remove EOL versions from metadata files for all architectures."""
+    """Remove EOL versions from metadata files for all os+architectures."""
     eol_versions = json.loads(eol_versions_json)
 
-    for arch in ALL_ARCHS:
-        metadata_file = get_metadata_file(arch)
-        if not Path(metadata_file).exists():
-            continue
+    for os_name in ALL_OS:
+        for arch in ALL_ARCHS:
+            metadata_file = get_metadata_file(os_name, arch)
+            if not Path(metadata_file).exists():
+                continue
 
-        metadata = load_json(metadata_file)
-        removed_count = 0
+            metadata = load_json(metadata_file)
+            removed_count = 0
 
-        for version in eol_versions:
-            if version in metadata:
-                del metadata[version]
-                print(f"Removed {version} from {metadata_file}")
-                removed_count += 1
+            for version in eol_versions:
+                if version in metadata:
+                    del metadata[version]
+                    print(f"Removed {version} from {metadata_file}")
+                    removed_count += 1
 
-        save_json(metadata, metadata_file)
-        print(f"Removed {removed_count} EOL versions from {metadata_file}")
+            save_json(metadata, metadata_file)
+            print(f"Removed {removed_count} EOL versions from {metadata_file}")
 
 
 def main():
@@ -265,11 +277,12 @@ def main():
 
     archive_parser = subparsers.add_parser('create-archive', help='Create tar.gz archive with CLI and FPM')
     archive_parser.add_argument('--php-version', required=True, help='PHP version')
+    archive_parser.add_argument('--os', required=True, help='Operating system (darwin or linux)')
     archive_parser.add_argument('--arch', required=True, help='Architecture (arm64 or x86_64)')
 
     metadata_parser = subparsers.add_parser('update-metadata', help='Update metadata-php.json with build results')
     metadata_parser.add_argument('--build-matrix', required=True, help='JSON build matrix')
-    metadata_parser.add_argument('--archive-checksums', required=True, help='Archive checksums (version,sha256,filename format)')
+    metadata_parser.add_argument('--archive-checksums', required=True, help='Archive checksums (version,os,arch,sha256,filename format)')
     metadata_parser.add_argument('--supported-versions', required=True, help='JSON array of supported PHP versions')
 
     cleanup_parser = subparsers.add_parser('cleanup-eol', help='Remove EOL versions from metadata')
@@ -280,7 +293,7 @@ def main():
     if args.command == 'check-versions':
         check_versions()
     elif args.command == 'create-archive':
-        create_archive(args.php_version, args.arch)
+        create_archive(args.php_version, args.os, args.arch)
     elif args.command == 'update-metadata':
         update_metadata(args.build_matrix, args.archive_checksums, args.supported_versions)
     elif args.command == 'cleanup-eol':

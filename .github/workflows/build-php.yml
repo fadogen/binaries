@@ -43,14 +43,16 @@ jobs:
       - name: "Sync PHP versions"
         id: sync
         run: |
-          # Download metadata for each architecture
-          for arch in arm64 x86_64; do
-            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php-${arch}.json metadata-php-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-              echo "Downloaded existing metadata-php-${arch}.json"
-            else
-              echo '{}' > metadata-php-${arch}.json
-              echo "Created empty metadata-php-${arch}.json"
-            fi
+          # Download metadata for each os+arch combination
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php-${os}-${arch}.json metadata-php-${os}-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+                echo "Downloaded existing metadata-php-${os}-${arch}.json"
+              else
+                echo '{}' > metadata-php-${os}-${arch}.json
+                echo "Created empty metadata-php-${os}-${arch}.json"
+              fi
+            done
           done
 
           echo "Fetching PHP.net API..."
@@ -60,7 +62,7 @@ jobs:
           cat github_output.txt >> "$GITHUB_OUTPUT"
 
   build:
-    name: "Build PHP ${{ matrix.php-version }} (${{ matrix.arch }})"
+    name: "Build PHP ${{ matrix.php-version }} (${{ matrix.os }}/${{ matrix.arch }})"
     runs-on: ${{ matrix.runs-on }}
     needs: [check-and-sync]
     if: needs.check-and-sync.outputs.should-build == 'true'
@@ -77,6 +79,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: "Select latest Xcode"
+        if: matrix.os == 'darwin'
         run: sudo xcode-select -s /Applications/Xcode_26.1.1.app/Contents/Developer
 
       - name: "Setup PHP"
@@ -93,7 +96,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: downloads
-          key: php-dependencies-${{ matrix.arch }}
+          key: php-dependencies-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: "Download sources"
         run: |
@@ -120,6 +123,7 @@ jobs:
           ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug -P .github/scripts/patch_fadogen_ini_scan.php
 
       - name: "Import signing certificate"
+        if: matrix.os == 'darwin'
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -134,9 +138,10 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
           rm $RUNNER_TEMP/certificate.p12
-          echo "✓ Signing certificate imported"
+          echo "Signing certificate imported"
 
       - name: "Sign PHP binaries"
+        if: matrix.os == 'darwin'
         env:
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
@@ -163,12 +168,13 @@ jobs:
           codesign --verify --strict buildroot/bin/php
           codesign --verify --strict buildroot/bin/php-fpm
 
-          echo "✓ All PHP binaries signed and verified"
+          echo "All PHP binaries signed and verified"
 
       - name: "Create and Upload PHP archive to R2 with SHA-256"
         run: |
           python3 .github/scripts/php_build_manager.py create-archive \
             --php-version ${{ matrix.full-version }} \
+            --os ${{ matrix.os }} \
             --arch ${{ matrix.arch }}
 
           source archive_info.txt
@@ -180,14 +186,14 @@ jobs:
             --body "$ARCHIVE_NAME" \
             --endpoint-url ${{ secrets.R2_ENDPOINT }} \
             --checksum-algorithm SHA256 \
-            --metadata phpversion="${{ matrix.full-version }}",majorminor="${{ matrix.php-version }}" \
+            --metadata phpversion="${{ matrix.full-version }}",majorminor="${{ matrix.php-version }}",os="${{ matrix.os }}",arch="${{ matrix.arch }}" \
             --output json)
 
           CHECKSUM_BASE64=$(echo "$UPLOAD_RESULT" | jq -r '.ChecksumSHA256')
           CHECKSUM_HEX=$(echo "$CHECKSUM_BASE64" | base64 -d | xxd -p -c 256)
 
-          echo "✓ Uploaded: $ARCHIVE_NAME"
-          echo "✓ SHA-256: $CHECKSUM_HEX"
+          echo "Uploaded: $ARCHIVE_NAME"
+          echo "SHA-256: $CHECKSUM_HEX"
 
           echo "CHECKSUM_SHA256=$CHECKSUM_HEX" >> $GITHUB_ENV
 
@@ -195,14 +201,14 @@ jobs:
         run: |
           source archive_info.txt
 
-          echo "${{ matrix.full-version }},${{ matrix.arch }},$CHECKSUM_SHA256,$ARCHIVE_NAME" > checksum-${{ matrix.full-version }}-${{ matrix.arch }}.txt
-          echo "Checksum saved: ${{ matrix.full-version }},${{ matrix.arch }},$CHECKSUM_SHA256,$ARCHIVE_NAME"
+          echo "${{ matrix.full-version }},${{ matrix.os }},${{ matrix.arch }},$CHECKSUM_SHA256,$ARCHIVE_NAME" > checksum-${{ matrix.full-version }}-${{ matrix.os }}-${{ matrix.arch }}.txt
+          echo "Checksum saved: ${{ matrix.full-version }},${{ matrix.os }},${{ matrix.arch }},$CHECKSUM_SHA256,$ARCHIVE_NAME"
 
       - name: "Upload checksum info"
         uses: actions/upload-artifact@v6
         with:
-          name: checksum-${{ matrix.full-version }}-${{ matrix.arch }}
-          path: checksum-${{ matrix.full-version }}-${{ matrix.arch }}.txt
+          name: checksum-${{ matrix.full-version }}-${{ matrix.os }}-${{ matrix.arch }}
+          path: checksum-${{ matrix.full-version }}-${{ matrix.os }}-${{ matrix.arch }}.txt
           retention-days: 1
 
   update-metadata:
@@ -226,14 +232,16 @@ jobs:
 
       - name: "Update metadata files"
         run: |
-          # Download existing metadata for each architecture
-          for arch in arm64 x86_64; do
-            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php-${arch}.json metadata-php-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-              echo "Downloaded existing metadata-php-${arch}.json"
-            else
-              echo '{}' > metadata-php-${arch}.json
-              echo "Created empty metadata-php-${arch}.json"
-            fi
+          # Download existing metadata for each os+arch combination
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php-${os}-${arch}.json metadata-php-${os}-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+                echo "Downloaded existing metadata-php-${os}-${arch}.json"
+              else
+                echo '{}' > metadata-php-${os}-${arch}.json
+                echo "Created empty metadata-php-${os}-${arch}.json"
+              fi
+            done
           done
 
           BUILD_MATRIX='${{ needs.check-and-sync.outputs.build-matrix }}'
@@ -247,10 +255,12 @@ jobs:
             --archive-checksums "$ALL_CHECKSUMS" \
             --supported-versions "$SUPPORTED_VERSIONS"
 
-          # Upload both metadata files
-          for arch in arm64 x86_64; do
-            aws s3 cp metadata-php-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }}
-            echo "Uploaded metadata-php-${arch}.json to R2"
+          # Upload all metadata files
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              aws s3 cp metadata-php-${os}-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-php-${os}-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }}
+              echo "Uploaded metadata-php-${os}-${arch}.json to R2"
+            done
           done
 
       - name: "Cleanup old binaries"
@@ -259,36 +269,38 @@ jobs:
 
           BUILD_MATRIX='${{ needs.check-and-sync.outputs.build-matrix }}'
 
-          # Process each architecture
-          for arch in arm64 x86_64; do
-            echo "Processing cleanup for $arch..."
-            METADATA_FILE="metadata-php-${arch}.json"
+          # Process each os+architecture
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              echo "Processing cleanup for ${os}/${arch}..."
+              METADATA_FILE="metadata-php-${os}-${arch}.json"
 
-            echo "$BUILD_MATRIX" | jq -r ".include[] | select(.arch == \"$arch\") | .[\"php-version\"]" | sort -u | while read php_version; do
-              [[ -z "$php_version" ]] && continue
-              echo "Cleaning up old binaries for PHP $php_version ($arch)"
+              echo "$BUILD_MATRIX" | jq -r ".include[] | select(.os == \"$os\" and .arch == \"$arch\") | .[\"php-version\"]" | sort -u | while read php_version; do
+                [[ -z "$php_version" ]] && continue
+                echo "Cleaning up old binaries for PHP $php_version (${os}/${arch})"
 
-              CURRENT_FILENAME=$(jq -r ".\"$php_version\".filename // \"\"" "$METADATA_FILE")
+                CURRENT_FILENAME=$(jq -r ".\"$php_version\".filename // \"\"" "$METADATA_FILE")
 
-              if [[ -z "$CURRENT_FILENAME" ]]; then
-                echo "  No current filename found in metadata for PHP $php_version ($arch)"
-                continue
-              fi
-
-              echo "  Current file: $CURRENT_FILENAME"
-
-              # List files matching pattern php-{version}.*-{arch}.tar.gz
-              aws s3api list-objects-v2 \
-                --bucket ${{ secrets.R2_BUCKET_NAME }} \
-                --prefix "php-$php_version." \
-                --endpoint-url ${{ secrets.R2_ENDPOINT }} \
-                --query 'Contents[].Key' \
-                --output text | tr '\t' '\n' | grep "\-${arch}\.tar\.gz$" | while read -r file_key; do
-                if [[ "$file_key" != "$CURRENT_FILENAME" ]] && [[ "$file_key" != "None" ]] && [[ -n "$file_key" ]]; then
-                  echo "  Deleting old binary: $file_key"
-                  aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" \
-                    --endpoint-url ${{ secrets.R2_ENDPOINT }} || echo "  Failed to delete $file_key"
+                if [[ -z "$CURRENT_FILENAME" ]]; then
+                  echo "  No current filename found in metadata for PHP $php_version (${os}/${arch})"
+                  continue
                 fi
+
+                echo "  Current file: $CURRENT_FILENAME"
+
+                # List files matching pattern php-{version}.*-{os}-{arch}.tar.gz
+                aws s3api list-objects-v2 \
+                  --bucket ${{ secrets.R2_BUCKET_NAME }} \
+                  --prefix "php-$php_version." \
+                  --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+                  --query 'Contents[].Key' \
+                  --output text | tr '\t' '\n' | grep "\-${os}-${arch}\.tar\.gz$" | while read -r file_key; do
+                  if [[ "$file_key" != "$CURRENT_FILENAME" ]] && [[ "$file_key" != "None" ]] && [[ -n "$file_key" ]]; then
+                    echo "  Deleting old binary: $file_key"
+                    aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" \
+                      --endpoint-url ${{ secrets.R2_ENDPOINT }} || echo "  Failed to delete $file_key"
+                  fi
+                done
               done
             done
           done

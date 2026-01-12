@@ -1,0 +1,93 @@
+name: "Migrate PHP Metadata (One-shot)"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    name: "Migrate metadata and archives to include OS"
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-east-1
+    steps:
+      - name: "Migrate metadata files"
+        run: |
+          ENDPOINT="${{ secrets.R2_ENDPOINT }}"
+          BUCKET="${{ secrets.R2_BUCKET_NAME }}"
+
+          for arch in arm64 x86_64; do
+            OLD_META="metadata-php-${arch}.json"
+            NEW_META="metadata-php-darwin-${arch}.json"
+
+            # Download old metadata
+            if aws s3 cp "s3://${BUCKET}/${OLD_META}" "${OLD_META}" --endpoint-url "$ENDPOINT" 2>/dev/null; then
+              echo "Downloaded ${OLD_META}"
+
+              # Update filename field: add darwin- before arch
+              sed -i "s/-${arch}.tar.gz/-darwin-${arch}.tar.gz/g" "${OLD_META}"
+
+              # Upload as new name
+              aws s3 cp "${OLD_META}" "s3://${BUCKET}/${NEW_META}" --endpoint-url "$ENDPOINT"
+              echo "Uploaded ${NEW_META}"
+            else
+              echo "Skipping ${OLD_META} - does not exist"
+            fi
+          done
+
+      - name: "Rename archives"
+        run: |
+          ENDPOINT="${{ secrets.R2_ENDPOINT }}"
+          BUCKET="${{ secrets.R2_BUCKET_NAME }}"
+
+          echo "Listing PHP archives..."
+          ARCHIVES=$(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "php-" --endpoint-url "$ENDPOINT" \
+            --query 'Contents[].Key' --output text 2>/dev/null | tr '\t' '\n' | grep -E "-(arm64|x86_64)\.tar\.gz$" || true)
+
+          if [ -z "$ARCHIVES" ]; then
+            echo "No archives found to migrate"
+            exit 0
+          fi
+
+          echo "$ARCHIVES" | while read -r old_key; do
+            # Skip if already has darwin or linux
+            if echo "$old_key" | grep -qE "-(darwin|linux)-"; then
+              echo "Skipping $old_key - already migrated"
+              continue
+            fi
+
+            new_key=$(echo "$old_key" | sed -E 's/-(arm64|x86_64)\.tar\.gz$/-darwin-\1.tar.gz/')
+            echo "Copying $old_key -> $new_key"
+            aws s3 cp "s3://${BUCKET}/${old_key}" "s3://${BUCKET}/${new_key}" --endpoint-url "$ENDPOINT"
+          done
+
+      - name: "Cleanup old files"
+        run: |
+          ENDPOINT="${{ secrets.R2_ENDPOINT }}"
+          BUCKET="${{ secrets.R2_BUCKET_NAME }}"
+
+          # Delete old metadata files
+          for arch in arm64 x86_64; do
+            echo "Deleting old metadata-php-${arch}.json..."
+            aws s3 rm "s3://${BUCKET}/metadata-php-${arch}.json" --endpoint-url "$ENDPOINT" 2>/dev/null || echo "Already deleted or not found"
+          done
+
+          # Delete old archives (without darwin/linux in name)
+          echo "Listing old archives to delete..."
+          ARCHIVES=$(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "php-" --endpoint-url "$ENDPOINT" \
+            --query 'Contents[].Key' --output text 2>/dev/null | tr '\t' '\n' | grep -E "-(arm64|x86_64)\.tar\.gz$" || true)
+
+          if [ -z "$ARCHIVES" ]; then
+            echo "No old archives to delete"
+            exit 0
+          fi
+
+          echo "$ARCHIVES" | while read -r key; do
+            if ! echo "$key" | grep -qE "-(darwin|linux)-"; then
+              echo "Deleting old archive: $key"
+              aws s3 rm "s3://${BUCKET}/${key}" --endpoint-url "$ENDPOINT"
+            fi
+          done
+
+          echo "Migration completed"
