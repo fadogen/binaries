@@ -59,7 +59,7 @@ jobs:
 
             new_key=$(echo "$old_key" | sed -E 's/-(arm64|x86_64)\.tar\.gz$/-darwin-\1.tar.gz/')
             echo "Copying $old_key -> $new_key"
-            aws s3 cp "s3://${BUCKET}/${old_key}" "s3://${BUCKET}/${new_key}" --endpoint-url "$ENDPOINT"
+            aws s3 cp "s3://${BUCKET}/${old_key}" "s3://${BUCKET}/${new_key}" --endpoint-url "$ENDPOINT" --copy-props none
           done
 
       - name: "Cleanup old files"
