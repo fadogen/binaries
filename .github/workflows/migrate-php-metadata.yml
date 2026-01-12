@@ -43,7 +43,7 @@ jobs:
 
           echo "Listing PHP archives..."
           ARCHIVES=$(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "php-" --endpoint-url "$ENDPOINT" \
-            --query 'Contents[].Key' --output text 2>/dev/null | tr '\t' '\n' | grep -E "-(arm64|x86_64)\.tar\.gz$" || true)
+            --query 'Contents[].Key' --output text 2>/dev/null | tr '\t' '\n' | grep -E -- "-(arm64|x86_64)\.tar\.gz$" || true)
 
           if [ -z "$ARCHIVES" ]; then
             echo "No archives found to migrate"
@@ -52,7 +52,7 @@ jobs:
 
           echo "$ARCHIVES" | while read -r old_key; do
             # Skip if already has darwin or linux
-            if echo "$old_key" | grep -qE "-(darwin|linux)-"; then
+            if echo "$old_key" | grep -qE -- "-(darwin|linux)-"; then
               echo "Skipping $old_key - already migrated"
               continue
             fi
@@ -76,7 +76,7 @@ jobs:
           # Delete old archives (without darwin/linux in name)
           echo "Listing old archives to delete..."
           ARCHIVES=$(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "php-" --endpoint-url "$ENDPOINT" \
-            --query 'Contents[].Key' --output text 2>/dev/null | tr '\t' '\n' | grep -E "-(arm64|x86_64)\.tar\.gz$" || true)
+            --query 'Contents[].Key' --output text 2>/dev/null | tr '\t' '\n' | grep -E -- "-(arm64|x86_64)\.tar\.gz$" || true)
 
           if [ -z "$ARCHIVES" ]; then
             echo "No old archives to delete"
@@ -84,7 +84,7 @@ jobs:
           fi
 
           echo "$ARCHIVES" | while read -r key; do
-            if ! echo "$key" | grep -qE "-(darwin|linux)-"; then
+            if ! echo "$key" | grep -qE -- "-(darwin|linux)-"; then
               echo "Deleting old archive: $key"
               aws s3 rm "s3://${BUCKET}/${key}" --endpoint-url "$ENDPOINT"
             fi
