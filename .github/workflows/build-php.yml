@@ -294,7 +294,7 @@ jobs:
                   --prefix "php-$php_version." \
                   --endpoint-url ${{ secrets.R2_ENDPOINT }} \
                   --query 'Contents[].Key' \
-                  --output text | tr '\t' '\n' | grep "\-${os}-${arch}\.tar\.gz$" | while read -r file_key; do
+                  --output text | tr '\t' '\n' | grep -- "\-${os}-${arch}\.tar\.gz$" | while read -r file_key; do
                   if [[ "$file_key" != "$CURRENT_FILENAME" ]] && [[ "$file_key" != "None" ]] && [[ -n "$file_key" ]]; then
                     echo "  Deleting old binary: $file_key"
                     aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" \
