@@ -100,10 +100,15 @@ jobs:
 
       - name: "Download sources"
         run: |
-          # On Linux, use glibc target to support shared extensions (musl doesn't support dlopen)
-          # Must be set BEFORE doctor --auto-fix so it installs zig
+          # On Linux, use glibc to support shared extensions (musl doesn't support dlopen)
+          # - x86_64: use SPC_LIBC=glibc with native gcc (faster, avoids Zig SSE2 bugs)
+          # - arm64: use SPC_TARGET with Zig for cross-compilation from x86_64 runner
           if [[ "${{ matrix.os }}" == "linux" ]]; then
-            export SPC_TARGET=native-native-gnu
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              export SPC_TARGET=aarch64-linux-gnu
+            else
+              export SPC_LIBC=glibc
+            fi
           fi
 
           EXTENSIONS="bcmath,bz2,calendar,ctype,curl,dba,dom,exif,ffi,fileinfo,filter,ftp,gd,gmp,iconv,igbinary,imagick,imap,intl,ldap,lz4,mbregex,mbstring,mongodb,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,pdo_sqlsrv,pgsql,phar,posix,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,sqlsrv,sysvmsg,sysvsem,sysvshm,tokenizer,xml,xmlreader,xmlwriter,xsl,zip,zlib"
@@ -133,16 +138,17 @@ jobs:
         run: |
           export SPC_PHP_VERSION_SHORT=$(echo ${{ matrix.php-version }} | sed 's/\.//g' | cut -c1-2)
 
-          # On Linux, use glibc target to support shared extensions (musl doesn't support dlopen)
-          # Use aarch64-linux-gnu for ARM64 to avoid Zig target errors
+          # On Linux, use glibc to support shared extensions (musl doesn't support dlopen)
+          # - x86_64: use SPC_LIBC=glibc with native gcc (faster, avoids Zig SSE2 bugs)
+          # - arm64: use SPC_TARGET with Zig for cross-compilation from x86_64 runner
           if [[ "${{ matrix.os }}" == "linux" ]]; then
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               export SPC_TARGET=aarch64-linux-gnu
+              # Increase file descriptor limit for Zig compilation
+              ulimit -n 65536
             else
-              export SPC_TARGET=native-native-gnu
+              export SPC_LIBC=glibc
             fi
-            # Increase file descriptor limit for Zig compilation
-            ulimit -n 65536
           fi
 
           ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug -P .github/scripts/patch_fadogen_ini_scan.php
