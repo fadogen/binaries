@@ -106,7 +106,7 @@ jobs:
             export SPC_TARGET=native-native-gnu
           fi
 
-          EXTENSIONS="bcmath,bz2,calendar,ctype,curl,dba,dom,exif,ffi,fileinfo,filter,ftp,gd,gmp,iconv,igbinary,imagick,intl,ldap,lz4,mbregex,mbstring,mongodb,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,pdo_sqlsrv,pgsql,phar,posix,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,sqlsrv,sysvmsg,sysvsem,sysvshm,tokenizer,xml,xmlreader,xmlwriter,xsl,zip,zlib"
+          EXTENSIONS="bcmath,bz2,calendar,ctype,curl,dba,dom,exif,ffi,fileinfo,filter,ftp,gd,gmp,iconv,igbinary,imagick,imap,intl,ldap,lz4,mbregex,mbstring,mongodb,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,pdo_sqlsrv,pgsql,phar,posix,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,sqlsrv,sysvmsg,sysvsem,sysvshm,tokenizer,xml,xmlreader,xmlwriter,xsl,zip,zlib"
 
           # Disable extensions not yet compatible with PHP 8.5
           if [[ "${{ matrix.php-version }}" == "8.5" ]]; then
@@ -122,6 +122,12 @@ jobs:
           eval "$DOWNLOAD_CMD"
 
           echo "EXTENSIONS=$EXTENSIONS" >> $GITHUB_ENV
+
+      - name: "Apply IMAP patches"
+        if: matrix.os == 'linux'
+        run: |
+          # Apply IMAP compatibility patches before build (Linux only)
+          .github/scripts/patch_imap.sh
 
       - name: "Build PHP"
         run: |
