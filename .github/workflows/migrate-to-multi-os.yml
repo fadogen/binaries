@@ -144,8 +144,11 @@ jobs:
               if [[ "$DRY_RUN" == "true" ]]; then
                 echo "    [DRY RUN] Would rename"
               else
-                aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_archive" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_archive" --endpoint-url ${{ secrets.R2_ENDPOINT }} --copy-props none
+                # Download then re-upload (R2 copy doesn't work even with --copy-props none)
+                aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_archive" "/tmp/$old_archive" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+                aws s3 cp "/tmp/$old_archive" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_archive" --endpoint-url ${{ secrets.R2_ENDPOINT }}
                 aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_archive" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+                rm -f "/tmp/$old_archive"
                 echo "    Done"
               fi
             else
@@ -272,25 +275,43 @@ jobs:
             if [[ "$DRY_RUN" == "true" ]]; then
               echo "    [DRY RUN] Would copy and delete"
             else
-              # Copy with retry logic (3 attempts)
+              # Download then re-upload (R2 S3-to-S3 copy doesn't work even with --copy-props none)
               for attempt in 1 2 3; do
-                echo "    Attempt $attempt/3..."
-                if aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_key" \
-                    --endpoint-url ${{ secrets.R2_ENDPOINT }} --copy-props none; then
-                  echo "    Copy successful"
+                echo "    Attempt $attempt/3 (download)..."
+                if aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" "/tmp/$old_key" \
+                    --endpoint-url ${{ secrets.R2_ENDPOINT }}; then
+                  echo "    Download successful"
                   break
                 else
-                  echo "    Copy failed, attempt $attempt"
+                  echo "    Download failed, attempt $attempt"
                   if [[ $attempt -eq 3 ]]; then
-                    echo "    ERROR: All attempts failed for $old_key"
+                    echo "    ERROR: All download attempts failed for $old_key"
                     exit 1
                   fi
                   sleep 5
                 fi
               done
 
-              # Delete old key only after successful copy
+              for attempt in 1 2 3; do
+                echo "    Attempt $attempt/3 (upload)..."
+                if aws s3 cp "/tmp/$old_key" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_key" \
+                    --endpoint-url ${{ secrets.R2_ENDPOINT }}; then
+                  echo "    Upload successful"
+                  break
+                else
+                  echo "    Upload failed, attempt $attempt"
+                  if [[ $attempt -eq 3 ]]; then
+                    echo "    ERROR: All upload attempts failed for $new_key"
+                    rm -f "/tmp/$old_key"
+                    exit 1
+                  fi
+                  sleep 5
+                fi
+              done
+
+              # Delete old key only after successful upload
               aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+              rm -f "/tmp/$old_key"
 
               echo "    Done"
             fi
