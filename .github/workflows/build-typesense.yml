@@ -15,23 +15,23 @@ jobs:
     outputs:
       should-build: ${{ steps.check.outputs.should-build }}
       typesense-version: ${{ steps.check.outputs.typesense-version }}
+      build-matrix: ${{ steps.check.outputs.build-matrix }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-east-1
     steps:
-      - name: "Checkout"
-        uses: actions/checkout@v6
-
       - name: "Download metadata files from R2"
         run: |
-          for arch in arm64 x86_64; do
-            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-darwin-${arch}.json metadata-typesense-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-              echo "Downloaded existing metadata-typesense-darwin-${arch}.json"
-            else
-              echo '{}' > metadata-typesense-darwin-${arch}.json
-              echo "Created empty metadata-typesense-darwin-${arch}.json"
-            fi
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-${os}-${arch}.json metadata-typesense-${os}-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+                echo "Downloaded existing metadata-typesense-${os}-${arch}.json"
+              else
+                echo '{}' > metadata-typesense-${os}-${arch}.json
+                echo "Created empty metadata-typesense-${os}-${arch}.json"
+              fi
+            done
           done
 
       - name: "Check Typesense version"
@@ -46,41 +46,62 @@ jobs:
 
           echo "Latest Typesense version: $LATEST_VERSION"
 
-          # Get version from metadata (check any arch, they should be in sync)
-          METADATA_VERSION=$(jq -r '.latest // ""' metadata-typesense-darwin-arm64.json)
-          echo "Metadata version: ${METADATA_VERSION:-none}"
+          # Build matrix configuration
+          declare -A RUNNERS=(
+            ["darwin-arm64"]="macos-26"
+            ["darwin-x86_64"]="macos-15-intel"
+            ["linux-arm64"]="ubuntu-24.04-arm"
+            ["linux-x86_64"]="ubuntu-latest"
+          )
 
-          # Compare versions
-          if [[ "$LATEST_VERSION" != "$METADATA_VERSION" ]]; then
+          declare -A DOWNLOAD_ARCH=(
+            ["darwin-arm64"]="darwin-arm64"
+            ["darwin-x86_64"]="darwin-amd64"
+            ["linux-arm64"]="linux-arm64"
+            ["linux-x86_64"]="linux-amd64"
+          )
+
+          # Check all OS/arch combinations and build matrix for those needing update
+          MATRIX_INCLUDES="[]"
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              METADATA_VERSION=$(jq -r '.latest // ""' metadata-typesense-${os}-${arch}.json)
+              if [[ "$LATEST_VERSION" != "$METADATA_VERSION" ]]; then
+                RUNNER="${RUNNERS[${os}-${arch}]}"
+                DL_ARCH="${DOWNLOAD_ARCH[${os}-${arch}]}"
+                MATRIX_INCLUDES=$(echo "$MATRIX_INCLUDES" | jq -c ". + [{\"os\": \"$os\", \"arch\": \"$arch\", \"runs-on\": \"$RUNNER\", \"download-arch\": \"$DL_ARCH\"}]")
+                if [[ -z "$METADATA_VERSION" ]]; then
+                  echo "Need build: ${os}/${arch} (initial)"
+                else
+                  echo "Need build: ${os}/${arch} (${METADATA_VERSION} -> ${LATEST_VERSION})"
+                fi
+              else
+                echo "Up to date: ${os}/${arch} (${METADATA_VERSION})"
+              fi
+            done
+          done
+
+          echo "typesense-version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+          if [[ "$MATRIX_INCLUDES" != "[]" ]]; then
             echo "should-build=true" >> $GITHUB_OUTPUT
-            echo "typesense-version=$LATEST_VERSION" >> $GITHUB_OUTPUT
-            if [[ -z "$METADATA_VERSION" ]]; then
-              echo "New: Typesense $LATEST_VERSION (initial build)"
-            else
-              echo "Update: Typesense $LATEST_VERSION (was: $METADATA_VERSION)"
-            fi
+            echo "build-matrix={\"include\":$MATRIX_INCLUDES}" >> $GITHUB_OUTPUT
+            echo "Build matrix: $MATRIX_INCLUDES"
           else
             echo "should-build=false" >> $GITHUB_OUTPUT
-            echo "typesense-version=$LATEST_VERSION" >> $GITHUB_OUTPUT
-            echo "Typesense $LATEST_VERSION already built, skipping"
+            echo "build-matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+            echo "All platforms up to date, skipping"
           fi
 
   build-typesense:
-    name: "Build Typesense ${{ needs.check-typesense-version.outputs.typesense-version }} (${{ matrix.arch }})"
+    name: "Build Typesense ${{ needs.check-typesense-version.outputs.typesense-version }} (${{ matrix.os }}/${{ matrix.arch }})"
     runs-on: ${{ matrix.runs-on }}
     needs: [check-typesense-version]
     if: needs.check-typesense-version.outputs.should-build == 'true'
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            runs-on: macos-26
-            download-arch: darwin-arm64
-          - arch: x86_64
-            runs-on: macos-15-intel
-            download-arch: darwin-amd64
+      matrix: ${{ fromJSON(needs.check-typesense-version.outputs.build-matrix) }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -103,7 +124,11 @@ jobs:
           # Verify MD5 checksum if provided
           if [[ -f "typesense-server.md5.txt" ]]; then
             EXPECTED_MD5=$(cat typesense-server.md5.txt | awk '{print $1}')
-            ACTUAL_MD5=$(md5 -q typesense-server)
+            if [[ "${{ matrix.os }}" == "darwin" ]]; then
+              ACTUAL_MD5=$(md5 -q typesense-server)
+            else
+              ACTUAL_MD5=$(md5sum typesense-server | awk '{print $1}')
+            fi
 
             if [[ "$EXPECTED_MD5" == "$ACTUAL_MD5" ]]; then
               echo "MD5 checksum verified: $ACTUAL_MD5"
@@ -122,7 +147,8 @@ jobs:
 
           echo "Typesense $VERSION downloaded and verified"
 
-      - name: "Import signing certificate"
+      - name: "[macOS] Import signing certificate"
+        if: matrix.os == 'darwin'
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -139,7 +165,8 @@ jobs:
           rm $RUNNER_TEMP/certificate.p12
           echo "Signing certificate imported"
 
-      - name: "Sign Typesense binary"
+      - name: "[macOS] Sign Typesense binary"
+        if: matrix.os == 'darwin'
         env:
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
@@ -155,7 +182,7 @@ jobs:
       - name: "Create archive"
         run: |
           VERSION="${{ needs.check-typesense-version.outputs.typesense-version }}"
-          ARCHIVE_NAME="typesense-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="typesense-${VERSION}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
 
           # Create archive with just the binary at root
           tar -czf "$ARCHIVE_NAME" typesense-server
@@ -165,7 +192,7 @@ jobs:
       - name: "Upload archive to R2 with SHA-256 checksum"
         run: |
           VERSION="${{ needs.check-typesense-version.outputs.typesense-version }}"
-          ARCHIVE_NAME="typesense-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="typesense-${VERSION}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
 
           if [[ ! -f "$ARCHIVE_NAME" ]]; then
             echo "[ERROR] Archive not found: $ARCHIVE_NAME"
@@ -179,7 +206,7 @@ jobs:
             --body "$ARCHIVE_NAME" \
             --endpoint-url ${{ secrets.R2_ENDPOINT }} \
             --checksum-algorithm SHA256 \
-            --metadata tool="typesense",version="$VERSION",os="darwin",arch="${{ matrix.arch }}" \
+            --metadata tool="typesense",version="$VERSION",os="${{ matrix.os }}",arch="${{ matrix.arch }}" \
             --output json)
 
           # Extract checksum from upload response and convert to hex
@@ -189,13 +216,13 @@ jobs:
           echo "Uploaded $ARCHIVE_NAME (SHA-256: $CHECKSUM_HEX)"
 
           # Save checksum info (format: version,arch,sha256,filename)
-          echo "${VERSION},${{ matrix.arch }},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-typesense-darwin-${{ matrix.arch }}.txt
+          echo "${VERSION},${{ matrix.arch }},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-typesense-${{ matrix.os }}-${{ matrix.arch }}.txt
 
       - name: "Upload checksum info"
         uses: actions/upload-artifact@v6
         with:
-          name: checksum-typesense-darwin-${{ matrix.arch }}
-          path: checksum-typesense-darwin-${{ matrix.arch }}.txt
+          name: checksum-typesense-${{ matrix.os }}-${{ matrix.arch }}
+          path: checksum-typesense-${{ matrix.os }}-${{ matrix.arch }}.txt
           retention-days: 1
 
   update-metadata:
@@ -211,53 +238,59 @@ jobs:
       - name: "Download checksum artifacts"
         uses: actions/download-artifact@v7
         with:
-          pattern: checksum-typesense-darwin-*
+          pattern: checksum-typesense-*
           merge-multiple: true
 
       - name: "Download existing metadata from R2"
         run: |
-          for arch in arm64 x86_64; do
-            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-darwin-${arch}.json metadata-typesense-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-              echo "Downloaded existing metadata-typesense-darwin-${arch}.json"
-            else
-              echo '{}' > metadata-typesense-darwin-${arch}.json
-              echo "Created empty metadata-typesense-darwin-${arch}.json"
-            fi
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-${os}-${arch}.json metadata-typesense-${os}-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+                echo "Downloaded existing metadata-typesense-${os}-${arch}.json"
+              else
+                echo '{}' > metadata-typesense-${os}-${arch}.json
+                echo "Created empty metadata-typesense-${os}-${arch}.json"
+              fi
+            done
           done
 
       - name: "Update metadata"
         run: |
-          for arch in arm64 x86_64; do
-            CHECKSUM_FILE="checksum-typesense-darwin-${arch}.txt"
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              CHECKSUM_FILE="checksum-typesense-${os}-${arch}.txt"
 
-            if [[ ! -f "$CHECKSUM_FILE" ]]; then
-              echo "No checksum for $arch (build may have failed), skipping"
-              continue
-            fi
+              if [[ ! -f "$CHECKSUM_FILE" ]]; then
+                echo "No checksum for ${os}/${arch} (build may have failed), skipping"
+                continue
+              fi
 
-            # Read checksum info (format: version,arch,sha256,filename)
-            IFS=',' read -r VERSION ARCH SHA256 FILENAME < "$CHECKSUM_FILE"
+              # Read checksum info (format: version,arch,sha256,filename)
+              IFS=',' read -r VERSION ARCH SHA256 FILENAME < "$CHECKSUM_FILE"
 
-            # Update metadata
-            jq -n \
-              --arg latest "$VERSION" \
-              --arg sha256 "$SHA256" \
-              --arg filename "$FILENAME" \
-              '{
-                "latest": $latest,
-                "sha256": $sha256,
-                "filename": $filename
-              }' > metadata-typesense-darwin-${arch}.json
+              # Update metadata
+              jq -n \
+                --arg latest "$VERSION" \
+                --arg sha256 "$SHA256" \
+                --arg filename "$FILENAME" \
+                '{
+                  "latest": $latest,
+                  "sha256": $sha256,
+                  "filename": $filename
+                }' > metadata-typesense-${os}-${arch}.json
 
-            echo "Updated metadata-typesense-darwin-${arch}.json:"
-            cat metadata-typesense-darwin-${arch}.json
+              echo "Updated metadata-typesense-${os}-${arch}.json:"
+              cat metadata-typesense-${os}-${arch}.json
+            done
           done
 
       - name: "Upload metadata files to R2"
         run: |
-          for arch in arm64 x86_64; do
-            aws s3 cp metadata-typesense-darwin-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
-            echo "Uploaded metadata-typesense-darwin-${arch}.json"
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              aws s3 cp metadata-typesense-${os}-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-${os}-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+              echo "Uploaded metadata-typesense-${os}-${arch}.json"
+            done
           done
 
   cleanup-old-builds:
@@ -271,35 +304,39 @@ jobs:
     steps:
       - name: "Download metadata files from R2"
         run: |
-          for arch in arm64 x86_64; do
-            aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-darwin-${arch}.json metadata-typesense-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-${os}-${arch}.json metadata-typesense-${os}-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1 || true
+            done
           done
 
       - name: "Cleanup old builds"
         run: |
-          for arch in arm64 x86_64; do
-            # Extract current filename from metadata
-            CURRENT_FILENAME=$(jq -r '.filename // ""' metadata-typesense-darwin-${arch}.json)
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              # Extract current filename from metadata
+              CURRENT_FILENAME=$(jq -r '.filename // ""' metadata-typesense-${os}-${arch}.json 2>/dev/null || echo "")
 
-            if [[ -z "$CURRENT_FILENAME" ]]; then
-              echo "No current filename for $arch, skipping cleanup"
-              continue
-            fi
-
-            echo "Current build ($arch): $CURRENT_FILENAME"
-
-            # List all typesense-*-{arch}.tar.gz files and delete all except the current one
-            aws s3api list-objects-v2 \
-              --bucket ${{ secrets.R2_BUCKET_NAME }} \
-              --prefix "typesense-" \
-              --endpoint-url ${{ secrets.R2_ENDPOINT }} \
-              --query 'Contents[].Key' \
-              --output text 2>/dev/null | tr '\t' '\n' | grep "\-${arch}\.tar\.gz$" | while read -r file_key; do
-              if [ "$file_key" != "$CURRENT_FILENAME" ] && [ -n "$file_key" ] && [ "$file_key" != "None" ]; then
-                if aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
-                  echo "Deleted old build: $file_key"
-                fi
+              if [[ -z "$CURRENT_FILENAME" ]]; then
+                echo "No current filename for ${os}/${arch}, skipping cleanup"
+                continue
               fi
+
+              echo "Current build (${os}/${arch}): $CURRENT_FILENAME"
+
+              # List all typesense-*-{os}-{arch}.tar.gz files and delete all except the current one
+              aws s3api list-objects-v2 \
+                --bucket ${{ secrets.R2_BUCKET_NAME }} \
+                --prefix "typesense-" \
+                --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+                --query 'Contents[].Key' \
+                --output text 2>/dev/null | tr '\t' '\n' | grep "\-${os}-${arch}\.tar\.gz$" | while read -r file_key; do
+                if [ "$file_key" != "$CURRENT_FILENAME" ] && [ -n "$file_key" ] && [ "$file_key" != "None" ]; then
+                  if aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
+                    echo "Deleted old build: $file_key"
+                  fi
+                fi
+              done
             done
           done
 
