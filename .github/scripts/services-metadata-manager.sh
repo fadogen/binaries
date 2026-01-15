@@ -25,7 +25,7 @@ declare -A OS_ARCH_RUNNERS=(
     ["darwin-arm64"]="macos-26"
     ["darwin-x86_64"]="macos-15-intel"
     # Linux
-    ["linux-arm64"]="ubuntu-24.04-arm64"
+    ["linux-arm64"]="ubuntu-24.04-arm"
     ["linux-x86_64"]="ubuntu-latest"
     # Windows
     ["windows-x86_64"]="windows-latest"
