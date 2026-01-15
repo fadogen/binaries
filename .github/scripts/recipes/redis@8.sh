@@ -27,17 +27,34 @@ build() {
     # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
     export CPPFLAGS="-I${PREFIX}/include"
-    # Add headerpad for install_name_tool (CRITICAL for relocation)
-    export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+
+    # Platform-specific LDFLAGS
+    case "$(uname)" in
+        Darwin)
+            # Add headerpad for install_name_tool (CRITICAL for relocation on macOS)
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            ;;
+        *)
+            export LDFLAGS="-L${PREFIX}/lib"
+            ;;
+    esac
+
+    # Detect number of CPU cores (cross-platform)
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
 
     cd "${SOURCE_DIR}"
 
     # Build with make (redis doesn't use configure)
     # BUILD_TLS=yes enables TLS support with OpenSSL
-    make -j"$(sysctl -n hw.ncpu)" \
+    make -j"${NPROC}" \
         PREFIX="${PREFIX}" \
         CC="${CC:-cc}" \
-        LD="${CC:-cc}" \
         BUILD_TLS=yes
 
     # Install directly to final location
