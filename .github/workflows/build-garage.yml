@@ -58,23 +58,31 @@ jobs:
 
           echo "Latest Garage version: $LATEST_VERSION"
 
-          # Get version from metadata (check any arch, they should be in sync)
-          METADATA_VERSION=$(jq -r '.latest // ""' metadata-garage-darwin-arm64.json)
-          echo "Metadata version: ${METADATA_VERSION:-none}"
+          # Check all OS/arch combinations - build if ANY is missing or outdated
+          SHOULD_BUILD=false
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              METADATA_VERSION=$(jq -r '.latest // ""' metadata-garage-${os}-${arch}.json)
+              if [[ "$LATEST_VERSION" != "$METADATA_VERSION" ]]; then
+                SHOULD_BUILD=true
+                if [[ -z "$METADATA_VERSION" ]]; then
+                  echo "Need build: ${os}/${arch} (initial)"
+                else
+                  echo "Need build: ${os}/${arch} (${METADATA_VERSION} -> ${LATEST_VERSION})"
+                fi
+              else
+                echo "Up to date: ${os}/${arch} (${METADATA_VERSION})"
+              fi
+            done
+          done
 
-          # Compare versions
-          if [[ "$LATEST_VERSION" != "$METADATA_VERSION" ]]; then
+          echo "garage-version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          if [[ "$SHOULD_BUILD" == "true" ]]; then
             echo "should-build=true" >> $GITHUB_OUTPUT
-            echo "garage-version=$LATEST_VERSION" >> $GITHUB_OUTPUT
-            if [[ -z "$METADATA_VERSION" ]]; then
-              echo "New: Garage $LATEST_VERSION (initial build)"
-            else
-              echo "Update: Garage $LATEST_VERSION (was: $METADATA_VERSION)"
-            fi
+            echo "Building Garage $LATEST_VERSION"
           else
             echo "should-build=false" >> $GITHUB_OUTPUT
-            echo "garage-version=$LATEST_VERSION" >> $GITHUB_OUTPUT
-            echo "Garage $LATEST_VERSION already built, skipping"
+            echo "All platforms up to date, skipping"
           fi
 
   build-garage:
