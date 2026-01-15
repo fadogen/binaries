@@ -47,55 +47,38 @@ jobs:
           echo "  4. Rename archive files to include 'darwin' in the name"
           echo ""
 
-      - name: "Cleanup corrupted multipart uploads"
+      - name: "Cleanup ALL incomplete multipart uploads"
         run: |
-          echo "=== Cleaning up corrupted files ==="
+          echo "=== Cleaning up ALL incomplete multipart uploads ==="
 
-          # List of corrupted files to clean (incomplete multipart uploads)
-          CORRUPTED_FILES=(
-            "mysql-9.5.0-darwin-arm64.tar.gz"
-          )
+          # List ALL incomplete multipart uploads in the bucket
+          uploads=$(aws s3api list-multipart-uploads \
+            --bucket ${{ secrets.R2_BUCKET_NAME }} \
+            --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+            --query 'Uploads[].{Key:Key,UploadId:UploadId}' \
+            --output json 2>/dev/null || echo "[]")
 
-          for file in "${CORRUPTED_FILES[@]}"; do
-            echo "Processing: $file"
+          if [[ "$uploads" == "[]" || "$uploads" == "null" || -z "$uploads" ]]; then
+            echo "No incomplete multipart uploads found"
+          else
+            echo "Found incomplete uploads:"
+            echo "$uploads" | jq -r '.[] | "  - \(.Key)"'
 
-            # First, abort any incomplete multipart uploads for this key
-            echo "  Checking for incomplete multipart uploads..."
-            uploads=$(aws s3api list-multipart-uploads \
-              --bucket ${{ secrets.R2_BUCKET_NAME }} \
-              --endpoint-url ${{ secrets.R2_ENDPOINT }} \
-              --prefix "$file" \
-              --query 'Uploads[].{Key:Key,UploadId:UploadId}' \
-              --output json 2>/dev/null || echo "[]")
-
-            if [[ "$uploads" != "[]" && "$uploads" != "null" && -n "$uploads" ]]; then
-              echo "  Found incomplete uploads, aborting..."
-              echo "$uploads" | jq -r '.[] | "\(.Key) \(.UploadId)"' | while read key upload_id; do
-                if [[ -n "$upload_id" && "$upload_id" != "null" ]]; then
-                  if [[ "$DRY_RUN" == "true" ]]; then
-                    echo "    [DRY RUN] Would abort upload $upload_id for $key"
-                  else
-                    aws s3api abort-multipart-upload \
-                      --bucket ${{ secrets.R2_BUCKET_NAME }} \
-                      --endpoint-url ${{ secrets.R2_ENDPOINT }} \
-                      --key "$key" \
-                      --upload-id "$upload_id" || true
-                    echo "    Aborted upload $upload_id"
-                  fi
+            echo "$uploads" | jq -r '.[] | "\(.Key) \(.UploadId)"' | while read key upload_id; do
+              if [[ -n "$upload_id" && "$upload_id" != "null" ]]; then
+                if [[ "$DRY_RUN" == "true" ]]; then
+                  echo "  [DRY RUN] Would abort upload for $key"
+                else
+                  aws s3api abort-multipart-upload \
+                    --bucket ${{ secrets.R2_BUCKET_NAME }} \
+                    --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+                    --key "$key" \
+                    --upload-id "$upload_id" || true
+                  echo "  Aborted: $key"
                 fi
-              done
-            else
-              echo "  No incomplete multipart uploads found"
-            fi
-
-            # Then try to delete the file itself
-            if [[ "$DRY_RUN" == "true" ]]; then
-              echo "  [DRY RUN] Would delete $file"
-            else
-              aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$file" --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null || true
-              echo "  Deleted $file (or already gone)"
-            fi
-          done
+              fi
+            done
+          fi
 
           echo "=== Cleanup complete ==="
 
@@ -183,6 +166,14 @@ jobs:
             echo "has_archives=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: "Configure AWS CLI timeouts"
+        run: |
+          # Increase timeouts for large file operations
+          aws configure set default.s3.max_concurrent_requests 5
+          aws configure set default.s3.multipart_chunksize 16MB
+          aws configure set default.connect_timeout 60
+          aws configure set default.read_timeout 300
+
       - name: "Migrate archive files"
         if: steps.list_archives.outputs.has_archives == 'true'
         run: |
@@ -214,10 +205,24 @@ jobs:
             if [[ "$DRY_RUN" == "true" ]]; then
               echo "    [DRY RUN] Would copy and delete"
             else
-              # Copy to new key (--copy-props none for R2 compatibility)
-              aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_key" --endpoint-url ${{ secrets.R2_ENDPOINT }} --copy-props none
+              # Copy with retry logic (3 attempts)
+              for attempt in 1 2 3; do
+                echo "    Attempt $attempt/3..."
+                if aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_key" \
+                    --endpoint-url ${{ secrets.R2_ENDPOINT }} --copy-props none; then
+                  echo "    Copy successful"
+                  break
+                else
+                  echo "    Copy failed, attempt $attempt"
+                  if [[ $attempt -eq 3 ]]; then
+                    echo "    ERROR: All attempts failed for $old_key"
+                    exit 1
+                  fi
+                  sleep 5
+                fi
+              done
 
-              # Delete old key
+              # Delete old key only after successful copy
               aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" --endpoint-url ${{ secrets.R2_ENDPOINT }}
 
               echo "    Done"
