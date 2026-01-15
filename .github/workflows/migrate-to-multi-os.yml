@@ -130,10 +130,63 @@ jobs:
             rm -f "/tmp/$old_name" "/tmp/$new_name"
           done
 
+      - name: "Migrate sshpass files (macos → darwin)"
+        run: |
+          echo "=== Migrating sshpass files ==="
+
+          for arch in arm64 x86_64; do
+            # Migrate archive: sshpass-X.Y-macos-arch.tar.gz → sshpass-X.Y-darwin-arch.tar.gz
+            old_archive="sshpass-1.10-macos-${arch}.tar.gz"
+            new_archive="sshpass-1.10-darwin-${arch}.tar.gz"
+
+            if aws s3api head-object --bucket ${{ secrets.R2_BUCKET_NAME }} --key "$old_archive" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
+              echo "  $old_archive → $new_archive"
+              if [[ "$DRY_RUN" == "true" ]]; then
+                echo "    [DRY RUN] Would rename"
+              else
+                aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_archive" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_archive" --endpoint-url ${{ secrets.R2_ENDPOINT }} --copy-props none
+                aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_archive" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+                echo "    Done"
+              fi
+            else
+              echo "  Skip: $old_archive (not found)"
+            fi
+
+            # Migrate metadata: metadata-sshpass-arch.json → metadata-sshpass-darwin-arch.json
+            old_meta="metadata-sshpass-${arch}.json"
+            new_meta="metadata-sshpass-darwin-${arch}.json"
+
+            if aws s3api head-object --bucket ${{ secrets.R2_BUCKET_NAME }} --key "$old_meta" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
+              echo "  $old_meta → $new_meta"
+
+              # Download, update filename inside, upload
+              aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_meta" "/tmp/$old_meta" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+
+              # Update filename in metadata (macos → darwin)
+              sed "s/-macos-/-darwin-/g" "/tmp/$old_meta" > "/tmp/$new_meta"
+
+              if [[ "$DRY_RUN" == "true" ]]; then
+                echo "    [DRY RUN] Would rename and update content"
+                cat "/tmp/$new_meta" | jq '.'
+              else
+                aws s3 cp "/tmp/$new_meta" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_meta" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+                aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_meta" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+                echo "    Done"
+              fi
+
+              rm -f "/tmp/$old_meta" "/tmp/$new_meta"
+            else
+              echo "  Skip: $old_meta (not found)"
+            fi
+          done
+
       - name: "List archives to migrate"
         id: list_archives
         run: |
           echo "=== Listing archives to migrate ==="
+
+          # Only migrate known database services
+          KNOWN_SERVICES="mariadb mysql postgresql redis valkey"
 
           # List all archives that don't have OS in their name
           archives=""
@@ -148,9 +201,23 @@ jobs:
             for file in $result; do
               # Skip if already has OS in name
               case "$file" in
-                *-darwin-*|*-linux-*|*-windows-*) continue ;;
-                *) archives="$archives $file" ;;
+                *-darwin-*|*-linux-*|*-windows-*|*-macos-*) continue ;;
               esac
+
+              # Only include known services
+              is_known=false
+              for service in $KNOWN_SERVICES; do
+                if [[ "$file" == ${service}-* ]]; then
+                  is_known=true
+                  break
+                fi
+              done
+
+              if [[ "$is_known" == "true" ]]; then
+                archives="$archives $file"
+              else
+                echo "  Skip: $file (not a known service)"
+              fi
             done
           done
 

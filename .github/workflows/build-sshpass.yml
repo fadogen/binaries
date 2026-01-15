@@ -77,7 +77,7 @@ jobs:
       - name: "Create archive"
         run: |
           VERSION="${{ env.SSHPASS_VERSION }}"
-          ARCHIVE_NAME="sshpass-${VERSION}-macos-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="sshpass-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
 
           cd "${GITHUB_WORKSPACE}/install/bin"
 
@@ -112,7 +112,7 @@ jobs:
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
           VERSION="${{ env.SSHPASS_VERSION }}"
-          ARCHIVE_NAME="sshpass-${VERSION}-macos-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="sshpass-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
 
           tar -xzf "$ARCHIVE_NAME"
 
@@ -127,7 +127,7 @@ jobs:
       - name: "Upload archive to R2 with SHA-256 checksum"
         run: |
           VERSION="${{ env.SSHPASS_VERSION }}"
-          ARCHIVE_NAME="sshpass-${VERSION}-macos-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="sshpass-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
 
           if [[ ! -f "$ARCHIVE_NAME" ]]; then
             echo "[ERROR] Archive not found: $ARCHIVE_NAME"
@@ -198,12 +198,12 @@ jobs:
                 "version": $version,
                 "sha256": $sha256,
                 "filename": $filename
-              }' > metadata-sshpass-${arch}.json
+              }' > metadata-sshpass-darwin-${arch}.json
 
-            echo "Created metadata-sshpass-${arch}.json:"
-            cat metadata-sshpass-${arch}.json
+            echo "Created metadata-sshpass-darwin-${arch}.json:"
+            cat metadata-sshpass-darwin-${arch}.json
 
             # Upload to R2
-            aws s3 cp metadata-sshpass-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-sshpass-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
-            echo "Uploaded metadata-sshpass-${arch}.json"
+            aws s3 cp metadata-sshpass-darwin-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-sshpass-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+            echo "Uploaded metadata-sshpass-darwin-${arch}.json"
           done
