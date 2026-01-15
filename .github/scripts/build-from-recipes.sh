@@ -31,9 +31,11 @@ source "${SCRIPT_DIR}/lib/colors.sh"
 source "${SCRIPT_DIR}/lib/download.sh"
 source "${SCRIPT_DIR}/lib/extract.sh"
 
-# Only load relocate.sh on macOS (Mach-O specific)
+# Load platform-specific relocation functions
 if [[ "$(uname)" == "Darwin" ]]; then
     source "${SCRIPT_DIR}/lib/relocate.sh"
+else
+    source "${SCRIPT_DIR}/lib/relocate-elf.sh"
 fi
 
 # Detect OS
@@ -229,11 +231,13 @@ build_package() {
         build "$install_prefix" "$source_dir"
     )
 
-    # Fix dylib install_name paths (macOS only)
-    # This handles cases like ICU (no path), zstd (@rpath), etc.
+    # Fix library paths for portability (platform-specific)
     if [[ "$OS_NAME" == "Darwin" ]]; then
         echo -e "${indent}${BLUE}→ Fixing dylib paths...${NC}"
         relocate_macho_files "$install_prefix" "$install_prefix" 2>&1 | sed "s/^/${indent}  /"
+    else
+        echo -e "${indent}${BLUE}→ Fixing ELF rpath...${NC}"
+        relocate_elf_files "$install_prefix" 2>&1 | sed "s/^/${indent}  /"
     fi
 
     # Mark as built and add to ordered list (for post_install)
