@@ -1,0 +1,191 @@
+name: "Migrate to Multi-OS Format"
+
+# This workflow is a ONE-SHOT migration to rename existing files:
+#   - metadata-services-{arch}.json → metadata-services-darwin-{arch}.json
+#   - {service}-{version}-{arch}.tar.gz → {service}-{version}-darwin-{arch}.tar.gz
+#
+# Run this ONCE before deploying the multi-OS build workflow.
+# After successful migration, this workflow can be deleted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (show what would be done without making changes)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  migrate:
+    name: "Migrate files to multi-OS format"
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-east-1
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Show migration plan"
+        run: |
+          echo "╔════════════════════════════════════════╗"
+          echo "║  Migration to Multi-OS Metadata Format  ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          echo "DRY_RUN: $DRY_RUN"
+          echo ""
+          echo "This migration will:"
+          echo "  1. Rename metadata-services-{arch}.json → metadata-services-darwin-{arch}.json"
+          echo "  2. Update filenames inside metadata JSON"
+          echo "  3. Rename archive files to include 'darwin' in the name"
+          echo ""
+
+      - name: "Migrate metadata files"
+        run: |
+          for arch in arm64 x86_64; do
+            old_name="metadata-services-${arch}.json"
+            new_name="metadata-services-darwin-${arch}.json"
+
+            echo "=== Processing $old_name ==="
+
+            # Check if old file exists
+            if ! aws s3api head-object --bucket ${{ secrets.R2_BUCKET_NAME }} --key "$old_name" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
+              echo "  Skip: $old_name (not found or already migrated)"
+              continue
+            fi
+
+            # Check if new file already exists
+            if aws s3api head-object --bucket ${{ secrets.R2_BUCKET_NAME }} --key "$new_name" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
+              echo "  Skip: $new_name (already exists)"
+              continue
+            fi
+
+            # Download old metadata
+            aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_name" "/tmp/$old_name" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+            echo "  Downloaded $old_name"
+
+            # Update filenames in metadata JSON
+            # Replace: "filename": "service-version-arch.tar.gz"
+            # With:    "filename": "service-version-darwin-arch.tar.gz"
+            sed "s/-${arch}\.tar\.gz/-darwin-${arch}.tar.gz/g" "/tmp/$old_name" > "/tmp/$new_name"
+            echo "  Updated filenames in metadata"
+
+            if [[ "$DRY_RUN" == "true" ]]; then
+              echo "  [DRY RUN] Would upload $new_name"
+              echo "  [DRY RUN] Would delete $old_name"
+              echo "  Content preview:"
+              cat "/tmp/$new_name" | jq '.' | head -20
+            else
+              # Upload new metadata
+              aws s3 cp "/tmp/$new_name" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_name" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+              echo "  Uploaded $new_name"
+
+              # Delete old metadata
+              aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_name" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+              echo "  Deleted $old_name"
+            fi
+
+            rm -f "/tmp/$old_name" "/tmp/$new_name"
+          done
+
+      - name: "List archives to migrate"
+        id: list_archives
+        run: |
+          echo "=== Listing archives to migrate ==="
+
+          # List all archives that don't have OS in their name
+          archives=""
+          for arch in arm64 x86_64; do
+            # List files ending with -arch.tar.gz but NOT containing darwin/linux/windows
+            result=$(aws s3api list-objects-v2 \
+              --bucket ${{ secrets.R2_BUCKET_NAME }} \
+              --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+              --query "Contents[?ends_with(Key, '-${arch}.tar.gz')].Key" \
+              --output text 2>/dev/null | tr '\t' '\n' || true)
+
+            for file in $result; do
+              # Skip if already has OS in name
+              case "$file" in
+                *-darwin-*|*-linux-*|*-windows-*) continue ;;
+                *) archives="$archives $file" ;;
+              esac
+            done
+          done
+
+          if [[ -z "$archives" ]]; then
+            echo "No archives to migrate"
+            echo "has_archives=false" >> $GITHUB_OUTPUT
+          else
+            echo "Archives to migrate:"
+            for f in $archives; do
+              echo "  - $f"
+            done
+            echo "$archives" > /tmp/archives_to_migrate.txt
+            echo "has_archives=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Migrate archive files"
+        if: steps.list_archives.outputs.has_archives == 'true'
+        run: |
+          echo "=== Migrating archive files ==="
+
+          archives=$(cat /tmp/archives_to_migrate.txt)
+
+          for old_key in $archives; do
+            # Skip if already has OS in name
+            case "$old_key" in
+              *-darwin-*|*-linux-*|*-windows-*) continue ;;
+            esac
+
+            # Determine architecture from filename
+            if [[ "$old_key" == *"-arm64.tar.gz" ]]; then
+              arch="arm64"
+            elif [[ "$old_key" == *"-x86_64.tar.gz" ]]; then
+              arch="x86_64"
+            else
+              echo "  Skip: $old_key (unknown architecture)"
+              continue
+            fi
+
+            # Generate new key by inserting "darwin" before architecture
+            new_key=$(echo "$old_key" | sed "s/-${arch}\.tar\.gz/-darwin-${arch}.tar.gz/")
+
+            echo "  $old_key → $new_key"
+
+            if [[ "$DRY_RUN" == "true" ]]; then
+              echo "    [DRY RUN] Would copy and delete"
+            else
+              # Copy to new key
+              aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_key" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+
+              # Delete old key
+              aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+
+              echo "    Done"
+            fi
+          done
+
+      - name: "Migration summary"
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════╗"
+          echo "║          Migration Complete             ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "This was a DRY RUN. No changes were made."
+            echo ""
+            echo "To perform the actual migration, run this workflow again"
+            echo "with 'dry_run' set to 'false'."
+          else
+            echo "Migration completed successfully!"
+            echo ""
+            echo "You can now deploy the multi-OS build workflow."
+            echo "This migration workflow can be deleted after verification."
+          fi
