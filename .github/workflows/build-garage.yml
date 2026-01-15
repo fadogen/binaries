@@ -15,6 +15,7 @@ jobs:
     outputs:
       should-build: ${{ steps.check.outputs.should-build }}
       garage-version: ${{ steps.check.outputs.garage-version }}
+      build-matrix: ${{ steps.check.outputs.build-matrix }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -58,13 +59,22 @@ jobs:
 
           echo "Latest Garage version: $LATEST_VERSION"
 
-          # Check all OS/arch combinations - build if ANY is missing or outdated
-          SHOULD_BUILD=false
+          # Build matrix configuration
+          declare -A RUNNERS=(
+            ["darwin-arm64"]="macos-26"
+            ["darwin-x86_64"]="macos-15-intel"
+            ["linux-arm64"]="ubuntu-24.04-arm"
+            ["linux-x86_64"]="ubuntu-latest"
+          )
+
+          # Check all OS/arch combinations and build matrix for those needing update
+          MATRIX_INCLUDES="[]"
           for os in darwin linux; do
             for arch in arm64 x86_64; do
               METADATA_VERSION=$(jq -r '.latest // ""' metadata-garage-${os}-${arch}.json)
               if [[ "$LATEST_VERSION" != "$METADATA_VERSION" ]]; then
-                SHOULD_BUILD=true
+                RUNNER="${RUNNERS[${os}-${arch}]}"
+                MATRIX_INCLUDES=$(echo "$MATRIX_INCLUDES" | jq -c ". + [{\"os\": \"$os\", \"arch\": \"$arch\", \"runs-on\": \"$RUNNER\"}]")
                 if [[ -z "$METADATA_VERSION" ]]; then
                   echo "Need build: ${os}/${arch} (initial)"
                 else
@@ -77,11 +87,14 @@ jobs:
           done
 
           echo "garage-version=$LATEST_VERSION" >> $GITHUB_OUTPUT
-          if [[ "$SHOULD_BUILD" == "true" ]]; then
+
+          if [[ "$MATRIX_INCLUDES" != "[]" ]]; then
             echo "should-build=true" >> $GITHUB_OUTPUT
-            echo "Building Garage $LATEST_VERSION"
+            echo "build-matrix={\"include\":$MATRIX_INCLUDES}" >> $GITHUB_OUTPUT
+            echo "Build matrix: $MATRIX_INCLUDES"
           else
             echo "should-build=false" >> $GITHUB_OUTPUT
+            echo "build-matrix={\"include\":[]}" >> $GITHUB_OUTPUT
             echo "All platforms up to date, skipping"
           fi
 
@@ -93,22 +106,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # macOS
-          - arch: arm64
-            os: darwin
-            runs-on: macos-26
-          - arch: x86_64
-            os: darwin
-            runs-on: macos-15-intel
-          # Linux
-          - arch: arm64
-            os: linux
-            runs-on: ubuntu-24.04-arm
-          - arch: x86_64
-            os: linux
-            runs-on: ubuntu-latest
+      matrix: ${{ fromJSON(needs.check-garage-version.outputs.build-matrix) }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
