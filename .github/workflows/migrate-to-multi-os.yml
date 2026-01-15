@@ -250,6 +250,7 @@ jobs:
           echo "=== Migrating archive files ==="
 
           archives=$(cat /tmp/archives_to_migrate.txt)
+          failed_files=""
 
           for old_key in $archives; do
             # Skip if already has OS in name
@@ -276,46 +277,65 @@ jobs:
               echo "    [DRY RUN] Would copy and delete"
             else
               # Download then re-upload (R2 S3-to-S3 copy doesn't work even with --copy-props none)
+              download_ok=false
               for attempt in 1 2 3; do
                 echo "    Attempt $attempt/3 (download)..."
                 if aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" "/tmp/$old_key" \
                     --endpoint-url ${{ secrets.R2_ENDPOINT }}; then
                   echo "    Download successful"
+                  download_ok=true
                   break
                 else
                   echo "    Download failed, attempt $attempt"
-                  if [[ $attempt -eq 3 ]]; then
-                    echo "    ERROR: All download attempts failed for $old_key"
-                    exit 1
-                  fi
                   sleep 5
                 fi
               done
 
+              if [[ "$download_ok" != "true" ]]; then
+                echo "    WARNING: Skipping $old_key (corrupted or download failed - will need rebuild)"
+                failed_files="$failed_files $old_key"
+                # Delete corrupted file from R2
+                echo "    Deleting corrupted file from R2..."
+                aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" --endpoint-url ${{ secrets.R2_ENDPOINT }} || true
+                continue
+              fi
+
+              upload_ok=false
               for attempt in 1 2 3; do
                 echo "    Attempt $attempt/3 (upload)..."
                 if aws s3 cp "/tmp/$old_key" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_key" \
                     --endpoint-url ${{ secrets.R2_ENDPOINT }}; then
                   echo "    Upload successful"
+                  upload_ok=true
                   break
                 else
                   echo "    Upload failed, attempt $attempt"
-                  if [[ $attempt -eq 3 ]]; then
-                    echo "    ERROR: All upload attempts failed for $new_key"
-                    rm -f "/tmp/$old_key"
-                    exit 1
-                  fi
                   sleep 5
                 fi
               done
 
+              rm -f "/tmp/$old_key"
+
+              if [[ "$upload_ok" != "true" ]]; then
+                echo "    WARNING: Upload failed for $new_key"
+                failed_files="$failed_files $old_key"
+                continue
+              fi
+
               # Delete old key only after successful upload
               aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" --endpoint-url ${{ secrets.R2_ENDPOINT }}
-              rm -f "/tmp/$old_key"
 
               echo "    Done"
             fi
           done
+
+          if [[ -n "$failed_files" ]]; then
+            echo ""
+            echo "⚠️  FILES THAT NEED REBUILD:"
+            for f in $failed_files; do
+              echo "  - $f"
+            done
+          fi
 
       - name: "Migration summary"
         run: |
