@@ -161,8 +161,8 @@ jobs:
             if [[ "$DRY_RUN" == "true" ]]; then
               echo "    [DRY RUN] Would copy and delete"
             else
-              # Copy to new key
-              aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_key" --endpoint-url ${{ secrets.R2_ENDPOINT }}
+              # Copy to new key (--copy-props none for R2 compatibility)
+              aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" "s3://${{ secrets.R2_BUCKET_NAME }}/$new_key" --endpoint-url ${{ secrets.R2_ENDPOINT }} --copy-props none
 
               # Delete old key
               aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$old_key" --endpoint-url ${{ secrets.R2_ENDPOINT }}
