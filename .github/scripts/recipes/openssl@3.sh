@@ -35,7 +35,8 @@ build() {
             export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
             ;;
         *)
-            export LDFLAGS="-L${PREFIX}/lib"
+            # Linux: Set RPATH to find bundled libraries relative to binary location
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-rpath,\$ORIGIN/../lib"
             ;;
     esac
 
