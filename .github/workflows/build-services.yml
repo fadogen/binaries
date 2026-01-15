@@ -118,9 +118,10 @@ jobs:
         run: |
           SERVICE="${{ matrix.service }}"
           VERSION="${{ matrix.version }}"
+          OS="${{ matrix.os }}"
           ARCH="${{ matrix.arch }}"
           BUNDLE_DIR="${SERVICE}-${VERSION}"
-          ARCHIVE_NAME="${SERVICE}-${VERSION}-${ARCH}.tar.gz"
+          ARCHIVE_NAME="${SERVICE}-${VERSION}-${OS}-${ARCH}.tar.gz"
 
           tar -xzf "${ARCHIVE_NAME}"
           .github/scripts/sign-binaries.sh "$SERVICE" "$BUNDLE_DIR"
