@@ -41,10 +41,63 @@ jobs:
           echo "DRY_RUN: $DRY_RUN"
           echo ""
           echo "This migration will:"
-          echo "  1. Rename metadata-services-{arch}.json → metadata-services-darwin-{arch}.json"
-          echo "  2. Update filenames inside metadata JSON"
-          echo "  3. Rename archive files to include 'darwin' in the name"
+          echo "  1. Clean up corrupted multipart uploads"
+          echo "  2. Rename metadata-services-{arch}.json → metadata-services-darwin-{arch}.json"
+          echo "  3. Update filenames inside metadata JSON"
+          echo "  4. Rename archive files to include 'darwin' in the name"
           echo ""
+
+      - name: "Cleanup corrupted multipart uploads"
+        run: |
+          echo "=== Cleaning up corrupted files ==="
+
+          # List of corrupted files to clean (incomplete multipart uploads)
+          CORRUPTED_FILES=(
+            "mysql-9.5.0-darwin-arm64.tar.gz"
+          )
+
+          for file in "${CORRUPTED_FILES[@]}"; do
+            echo "Processing: $file"
+
+            # First, abort any incomplete multipart uploads for this key
+            echo "  Checking for incomplete multipart uploads..."
+            uploads=$(aws s3api list-multipart-uploads \
+              --bucket ${{ secrets.R2_BUCKET_NAME }} \
+              --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+              --prefix "$file" \
+              --query 'Uploads[].{Key:Key,UploadId:UploadId}' \
+              --output json 2>/dev/null || echo "[]")
+
+            if [[ "$uploads" != "[]" && "$uploads" != "null" && -n "$uploads" ]]; then
+              echo "  Found incomplete uploads, aborting..."
+              echo "$uploads" | jq -r '.[] | "\(.Key) \(.UploadId)"' | while read key upload_id; do
+                if [[ -n "$upload_id" && "$upload_id" != "null" ]]; then
+                  if [[ "$DRY_RUN" == "true" ]]; then
+                    echo "    [DRY RUN] Would abort upload $upload_id for $key"
+                  else
+                    aws s3api abort-multipart-upload \
+                      --bucket ${{ secrets.R2_BUCKET_NAME }} \
+                      --endpoint-url ${{ secrets.R2_ENDPOINT }} \
+                      --key "$key" \
+                      --upload-id "$upload_id" || true
+                    echo "    Aborted upload $upload_id"
+                  fi
+                fi
+              done
+            else
+              echo "  No incomplete multipart uploads found"
+            fi
+
+            # Then try to delete the file itself
+            if [[ "$DRY_RUN" == "true" ]]; then
+              echo "  [DRY RUN] Would delete $file"
+            else
+              aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/$file" --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null || true
+              echo "  Deleted $file (or already gone)"
+            fi
+          done
+
+          echo "=== Cleanup complete ==="
 
       - name: "Migrate metadata files"
         run: |
