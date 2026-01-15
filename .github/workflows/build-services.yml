@@ -90,9 +90,7 @@ jobs:
         if: matrix.os == 'darwin'
         env:
           ARCH: ${{ matrix.arch }}
-        run: |
-          set -o pipefail
-          .github/scripts/build-from-recipes.sh "${{ matrix.recipe }}" 2>&1 | tail -100
+        run: .github/scripts/build-from-recipes.sh "${{ matrix.recipe }}"
 
       - name: "[macOS] Import signing certificate"
         if: matrix.os == 'darwin'
@@ -144,9 +142,7 @@ jobs:
         if: matrix.os == 'linux'
         env:
           ARCH: ${{ matrix.arch }}
-        run: |
-          set -o pipefail
-          .github/scripts/build-from-recipes.sh "${{ matrix.recipe }}" 2>&1 | tail -100
+        run: .github/scripts/build-from-recipes.sh "${{ matrix.recipe }}"
 
       # ========================================
       # Common: Upload archive
