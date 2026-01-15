@@ -30,17 +30,29 @@ ARCH="${ARCH:-$(uname -m)}"
 source "${SCRIPT_DIR}/lib/colors.sh"
 source "${SCRIPT_DIR}/lib/download.sh"
 source "${SCRIPT_DIR}/lib/extract.sh"
-source "${SCRIPT_DIR}/lib/relocate.sh"
 
-# Final installation prefix (Fadogen style - fixed path)
-FADOGEN_BASE="/Users/Shared/Fadogen"
+# Only load relocate.sh on macOS (Mach-O specific)
+if [[ "$(uname)" == "Darwin" ]]; then
+    source "${SCRIPT_DIR}/lib/relocate.sh"
+fi
+
+# Detect OS
+OS_NAME="$(uname)"
+
+# Final installation prefix (Fadogen style - varies by OS)
+if [[ "$OS_NAME" == "Darwin" ]]; then
+    FADOGEN_BASE="/Users/Shared/Fadogen"
+else
+    # Linux: use /opt/fadogen (same concept as macOS /Users/Shared/Fadogen)
+    FADOGEN_BASE="/opt/fadogen"
+fi
 
 # Tracking built packages and versions
 declare -A BUILT_PACKAGES
 declare -A PACKAGE_VERSIONS
 declare -a BUILT_PACKAGES_ORDER  # Ordered list for post_install (topological order)
 
-# Ensure build dependencies are installed via Homebrew (not included in bundle)
+# Ensure build dependencies are installed via Homebrew
 ensure_build_dependencies() {
     local build_deps="$1"
 
@@ -217,10 +229,12 @@ build_package() {
         build "$install_prefix" "$source_dir"
     )
 
-    # Fix dylib install_name paths (some libraries don't set them correctly)
+    # Fix dylib install_name paths (macOS only)
     # This handles cases like ICU (no path), zstd (@rpath), etc.
-    echo -e "${indent}${BLUE}→ Fixing dylib paths...${NC}"
-    relocate_macho_files "$install_prefix" "$install_prefix" 2>&1 | sed "s/^/${indent}  /"
+    if [[ "$OS_NAME" == "Darwin" ]]; then
+        echo -e "${indent}${BLUE}→ Fixing dylib paths...${NC}"
+        relocate_macho_files "$install_prefix" "$install_prefix" 2>&1 | sed "s/^/${indent}  /"
+    fi
 
     # Mark as built and add to ordered list (for post_install)
     BUILT_PACKAGES[$package_name]=1
@@ -292,8 +306,9 @@ echo -e ""
 # Create archive for upload to R2
 echo -e "${GREEN}━━━ Creating portable archive ━━━${NC}"
 
-# Archive name format: {service}-{version}-{arch}.tar.gz (matches R2 metadata format)
-ARCHIVE_NAME="${BASE_NAME}-${PKG_VERSION}-${ARCH}.tar.gz"
+# Archive name format: {service}-{version}-{os}-{arch}.tar.gz (matches R2 metadata format)
+OS_LOWER=$(echo "$OS_NAME" | tr '[:upper:]' '[:lower:]')
+ARCHIVE_NAME="${BASE_NAME}-${PKG_VERSION}-${OS_LOWER}-${ARCH}.tar.gz"
 TEMP_BUNDLE="${BUILD_DIR}/${BASE_NAME}-${PKG_VERSION}"
 
 echo -e "${BLUE}→ Preparing bundle structure...${NC}"
@@ -309,7 +324,11 @@ cp -R "${INSTALL_PREFIX}/"* "$TEMP_BUNDLE/" || {
 
 # Count files before archiving
 BIN_COUNT=$(find "$TEMP_BUNDLE/bin" -type f 2>/dev/null | wc -l | tr -d ' ' || echo "0")
-LIB_COUNT=$(find "$TEMP_BUNDLE/lib" -name "*.dylib" -type f 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+if [[ "$OS_NAME" == "Darwin" ]]; then
+    LIB_COUNT=$(find "$TEMP_BUNDLE/lib" -name "*.dylib" -type f 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+else
+    LIB_COUNT=$(find "$TEMP_BUNDLE/lib" -name "*.so*" -type f 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+fi
 
 # Create tar.gz archive
 echo -e "${BLUE}→ Creating archive: ${ARCHIVE_NAME}${NC}"
@@ -342,5 +361,9 @@ echo -e ""
 echo -e "${BLUE}Verification commands:${NC}"
 echo -e "  1. Extract: tar -xzf ${ARCHIVE_NAME}"
 echo -e "  2. List binaries: ls -lh ${BASE_NAME}-${PKG_VERSION}/bin/"
-echo -e "  3. Check dylib paths: otool -L ${BASE_NAME}-${PKG_VERSION}/bin/*"
+if [[ "$OS_NAME" == "Darwin" ]]; then
+    echo -e "  3. Check dylib paths: otool -L ${BASE_NAME}-${PKG_VERSION}/bin/*"
+else
+    echo -e "  3. Check shared lib deps: ldd ${BASE_NAME}-${PKG_VERSION}/bin/*"
+fi
 echo -e ""

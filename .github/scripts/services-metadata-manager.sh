@@ -4,10 +4,10 @@ set -euo pipefail
 # ================================
 # SERVICES METADATA MANAGER
 # ================================
-# Manages metadata-services-{arch}.json for all database services
+# Manages metadata-services-{os}-{arch}.json for all database services
 # Commands:
 #   check-versions    - Compare metadata with recipe versions and generate build matrix
-#   update-metadata   - Update metadata-services-{arch}.json with build results
+#   update-metadata   - Update metadata-services-{os}-{arch}.json with build results
 
 # ================================
 # CONFIGURATION
@@ -19,12 +19,17 @@ CONFIG_PATH="${SCRIPT_DIR}/../config/services-config.sh"
 # shellcheck source=../config/services-config.sh
 source "$CONFIG_PATH"
 
-# Supported architectures and their runners
-declare -A ARCH_RUNNERS=(
-    ["arm64"]="macos-26"
-    ["x86_64"]="macos-15-intel"
+# Runners by OS and architecture
+declare -A OS_ARCH_RUNNERS=(
+    # macOS
+    ["darwin-arm64"]="macos-26"
+    ["darwin-x86_64"]="macos-15-intel"
+    # Linux
+    ["linux-arm64"]="ubuntu-24.04-arm64"
+    ["linux-x86_64"]="ubuntu-latest"
+    # Windows
+    ["windows-x86_64"]="windows-latest"
 )
-SUPPORTED_ARCHS="arm64 x86_64"
 
 # ================================
 # UTILITY FUNCTIONS
@@ -43,10 +48,11 @@ check_prerequisites() {
     command -v jq >/dev/null 2>&1 || log_error "jq is required but not installed"
 }
 
-# Get metadata filename for a specific architecture
+# Get metadata filename for a specific OS and architecture
 get_metadata_file() {
-    local arch="$1"
-    echo "metadata-services-${arch}.json"
+    local os="$1"
+    local arch="$2"
+    echo "metadata-services-${os}-${arch}.json"
 }
 
 # ================================
@@ -85,76 +91,106 @@ get_version_from_recipe() {
 check_versions() {
     log_info "Checking service versions..."
 
-    # Load metadata for each architecture
-    declare -A metadata_by_arch
-    for arch in $SUPPORTED_ARCHS; do
-        local metadata_file
-        metadata_file=$(get_metadata_file "$arch")
-        if [[ -f "$metadata_file" ]]; then
-            metadata_by_arch[$arch]=$(cat "$metadata_file")
-            log_info "Loaded existing metadata for $arch"
-        else
-            metadata_by_arch[$arch]='{}'
-            log_info "No metadata found for $arch (will create)"
-        fi
+    # Load metadata for each OS/architecture combination
+    declare -A metadata_by_os_arch
+    for os in $SUPPORTED_OS; do
+        local archs
+        archs=$(get_architectures_for_os "$os")
+        for arch in $archs; do
+            local key="${os}-${arch}"
+            local metadata_file
+            metadata_file=$(get_metadata_file "$os" "$arch")
+            if [[ -f "$metadata_file" ]]; then
+                metadata_by_os_arch[$key]=$(cat "$metadata_file")
+                log_info "Loaded existing metadata for $key"
+            else
+                metadata_by_os_arch[$key]='{}'
+                log_info "No metadata found for $key (will create)"
+            fi
+        done
     done
 
     # Build matrix array
     local matrix_items=()
 
     # Filter services if FILTER_SERVICE is set
-    local services_to_check="$AVAILABLE_SERVICES"
+    local base_services="$AVAILABLE_SERVICES"
     if [[ -n "${FILTER_SERVICE:-}" ]]; then
-        services_to_check="$FILTER_SERVICE"
+        base_services="$FILTER_SERVICE"
         log_info "Filtering for service: $FILTER_SERVICE"
     fi
 
-    # Iterate over all services
-    for service in $services_to_check; do
-        # Get supported major versions for this service
-        local major_versions
-        major_versions=$(get_supported_versions "$service")
+    # Filter OS if FILTER_OS is set
+    local os_to_check="$SUPPORTED_OS"
+    if [[ -n "${FILTER_OS:-}" ]]; then
+        os_to_check="$FILTER_OS"
+        log_info "Filtering for OS: $FILTER_OS"
+    fi
 
-        # Check each major version
-        for major in $major_versions; do
-            # Check if a recipe exists for this service+major
-            local recipe_name
-            recipe_name=$(get_recipe_for_service_major "$service" "$major")
+    # Iterate over all OS
+    for os in $os_to_check; do
+        # Get services and architectures for this OS
+        local services_for_os
+        services_for_os=$(get_services_for_os "$os")
+        local archs_for_os
+        archs_for_os=$(get_architectures_for_os "$os")
 
-            if [[ $? -ne 0 || -z "$recipe_name" ]]; then
-                log_info "Skip: $service $major (no recipe available)"
-                continue
+        # Filter services
+        local services_to_check=""
+        for service in $base_services; do
+            if is_service_supported_on_os "$service" "$os"; then
+                services_to_check="$services_to_check $service"
             fi
+        done
 
-            # Get version from recipe
-            local recipe_version
-            recipe_version=$(get_version_from_recipe "$recipe_name")
+        # Iterate over all services for this OS
+        for service in $services_to_check; do
+            # Get supported major versions for this service (filtered by OS)
+            local major_versions
+            major_versions=$(get_supported_versions "$service" "$os")
 
-            if [[ $? -ne 0 || -z "$recipe_version" ]]; then
-                log_info "Skip: $service $major (could not extract version from recipe)"
-                continue
-            fi
+            # Check each major version
+            for major in $major_versions; do
+                # Check if a recipe exists for this service+major
+                local recipe_name
+                recipe_name=$(get_recipe_for_service_major "$service" "$major")
 
-            # Check each architecture
-            for arch in $SUPPORTED_ARCHS; do
-                local metadata="${metadata_by_arch[$arch]}"
-                local runs_on="${ARCH_RUNNERS[$arch]}"
-
-                # Get current version from metadata (if exists)
-                local metadata_latest
-                metadata_latest=$(echo "$metadata" | jq -r ".\"$service\".\"$major\".latest // \"\"")
-
-                # Compare versions
-                if [[ "$recipe_version" != "$metadata_latest" ]]; then
-                    if [[ -z "$metadata_latest" ]]; then
-                        log_info "New: ${service} ${major} ${arch} -> ${recipe_version}"
-                    else
-                        log_info "Update: ${service} ${major} ${arch} -> ${recipe_version} (was: ${metadata_latest})"
-                    fi
-
-                    # Add to build matrix with recipe name, arch, and runs-on
-                    matrix_items+=("{\"service\": \"$service\", \"version\": \"$recipe_version\", \"major\": \"$major\", \"recipe\": \"$recipe_name\", \"arch\": \"$arch\", \"runs-on\": \"$runs_on\"}")
+                if [[ $? -ne 0 || -z "$recipe_name" ]]; then
+                    log_info "Skip: $service $major (no recipe available)"
+                    continue
                 fi
+
+                # Get version from recipe
+                local recipe_version
+                recipe_version=$(get_version_from_recipe "$recipe_name")
+
+                if [[ $? -ne 0 || -z "$recipe_version" ]]; then
+                    log_info "Skip: $service $major (could not extract version from recipe)"
+                    continue
+                fi
+
+                # Check each architecture for this OS
+                for arch in $archs_for_os; do
+                    local key="${os}-${arch}"
+                    local metadata="${metadata_by_os_arch[$key]}"
+                    local runs_on="${OS_ARCH_RUNNERS[$key]}"
+
+                    # Get current version from metadata (if exists)
+                    local metadata_latest
+                    metadata_latest=$(echo "$metadata" | jq -r ".\"$service\".\"$major\".latest // \"\"")
+
+                    # Compare versions
+                    if [[ "$recipe_version" != "$metadata_latest" ]]; then
+                        if [[ -z "$metadata_latest" ]]; then
+                            log_info "New: ${service} ${major} ${os}/${arch} -> ${recipe_version}"
+                        else
+                            log_info "Update: ${service} ${major} ${os}/${arch} -> ${recipe_version} (was: ${metadata_latest})"
+                        fi
+
+                        # Add to build matrix with all info
+                        matrix_items+=("{\"service\": \"$service\", \"version\": \"$recipe_version\", \"major\": \"$major\", \"recipe\": \"$recipe_name\", \"os\": \"$os\", \"arch\": \"$arch\", \"runs-on\": \"$runs_on\"}")
+                    fi
+                done
             done
         done
     done
@@ -166,10 +202,10 @@ check_versions() {
         echo "should-build=false" >> "${GITHUB_OUTPUT:-/dev/stdout}"
         log_info "No builds needed"
     else
-        # Sort matrix: MySQL first (slowest build), then others alphabetically
+        # Sort matrix: MySQL first (slowest build), then by OS, then by service
         local matrix_items_str
         matrix_items_str=$(printf '%s\n' "${matrix_items[@]}" | \
-            jq -s 'sort_by(.service) | sort_by(if .service == "mysql" then 0 else 1 end)' | \
+            jq -s 'sort_by(.os, .service) | sort_by(if .service == "mysql" then 0 else 1 end)' | \
             jq -c '.[]' | tr '\n' ',' | sed 's/,$//')
         matrix_json=$(echo "{\"include\": [$matrix_items_str]}" | jq -c)
         echo "should-build=true" >> "${GITHUB_OUTPUT:-/dev/stdout}"
@@ -184,13 +220,14 @@ check_versions() {
 # ================================
 
 update_metadata() {
-    local arch="${1:-}"
-    if [[ -z "$arch" ]]; then
-        log_error "Usage: update-metadata <arch>"
+    local os="${1:-}"
+    local arch="${2:-}"
+    if [[ -z "$os" || -z "$arch" ]]; then
+        log_error "Usage: update-metadata <os> <arch>"
     fi
 
     local metadata_file
-    metadata_file=$(get_metadata_file "$arch")
+    metadata_file=$(get_metadata_file "$os" "$arch")
 
     # Load existing metadata or create new
     local metadata='{}'
@@ -203,7 +240,7 @@ update_metadata() {
     checksums_input=$(cat)
 
     if [[ -z "$checksums_input" ]]; then
-        log_info "No checksums provided for $arch (skipping)"
+        log_info "No checksums provided for $os/$arch (skipping)"
         return 0
     fi
 
@@ -211,7 +248,7 @@ update_metadata() {
     while IFS=',' read -r service version major sha256 filename; do
         [[ -z "$service" ]] && continue
 
-        log_info "Updating $service $major ($arch): $version"
+        log_info "Updating $service $major ($os/$arch): $version"
 
         # Update metadata using jq
         metadata=$(echo "$metadata" | jq -c \
@@ -270,7 +307,7 @@ main() {
             update_metadata "$@"
             ;;
         *)
-            log_error "Usage: $0 {check-versions|update-metadata <arch>}"
+            log_error "Usage: $0 {check-versions|update-metadata <os> <arch>}"
             ;;
     esac
 }

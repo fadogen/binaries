@@ -27,32 +27,75 @@ build() {
     # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
     export CPPFLAGS="-I${PREFIX}/include"
-    # Add headerpad for install_name_tool (CRITICAL for relocation)
-    export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+
+    # Platform-specific LDFLAGS
+    case "$(uname)" in
+        Darwin)
+            # Add headerpad for install_name_tool (CRITICAL for relocation on macOS)
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            ;;
+        *)
+            export LDFLAGS="-L${PREFIX}/lib"
+            ;;
+    esac
+
+    # Detect number of CPU cores (cross-platform)
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
 
     cd "${SOURCE_DIR}"
 
-    # Detect architecture
+    # Detect target based on OS and architecture
     local OPENSSL_TARGET
-    if [[ "$(uname -m)" == "arm64" ]]; then
-        OPENSSL_TARGET="darwin64-arm64-cc"
-    else
-        OPENSSL_TARGET="darwin64-x86_64-cc"
-    fi
+    local ARCH
+    ARCH="$(uname -m)"
 
-    # Configure for macOS
+    local EXTRA_ARGS=""
+    case "$(uname)" in
+        Darwin)
+            if [ "$ARCH" = "arm64" ]; then
+                OPENSSL_TARGET="darwin64-arm64-cc"
+            else
+                OPENSSL_TARGET="darwin64-x86_64-cc"
+            fi
+            EXTRA_ARGS="enable-ec_nistp_64_gcc_128"
+            ;;
+        Linux)
+            if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+                OPENSSL_TARGET="linux-aarch64"
+            else
+                OPENSSL_TARGET="linux-x86_64"
+            fi
+            # On Linux, pass flags to Configure (as Homebrew does)
+            EXTRA_ARGS="$CPPFLAGS $LDFLAGS"
+            ;;
+        *)
+            echo "Unsupported OS: $(uname)"
+            exit 1
+            ;;
+    esac
+
+    echo "Using OpenSSL target: $OPENSSL_TARGET"
+
+    # Configure
+    # shellcheck disable=SC2086
     ./Configure \
         "$OPENSSL_TARGET" \
         --prefix="${PREFIX}" \
         --openssldir="${PREFIX}/etc/openssl@3" \
         --libdir=lib \
-        enable-ec_nistp_64_gcc_128 \
         no-ssl3 \
         no-ssl3-method \
-        no-zlib
+        no-zlib \
+        $EXTRA_ARGS
 
     # Build
-    make -j"$(sysctl -n hw.ncpu)"
+    make -j"${NPROC}"
 
     # Install directly to final location
     make install_sw install_ssldirs

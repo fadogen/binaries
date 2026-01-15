@@ -12,6 +12,42 @@ AVAILABLE_SERVICES="mariadb mysql postgresql redis valkey"
 # Quand une nouvelle version majeure est buildée, les anciennes sont supprimées
 SINGLE_VERSION_SERVICES="valkey"
 
+# ================================
+# CONFIGURATION MULTI-OS
+# ================================
+
+# OS supportés (Windows désactivé pour le moment)
+SUPPORTED_OS="darwin linux"
+
+# Architectures par OS
+get_architectures_for_os() {
+    local os="$1"
+    case "$os" in
+        darwin|linux) echo "arm64 x86_64" ;;
+        *) echo "" ;;
+    esac
+}
+
+# Services disponibles par OS
+get_services_for_os() {
+    local os="$1"
+    case "$os" in
+        darwin) echo "mariadb mysql postgresql redis valkey" ;;
+        linux) echo "valkey" ;;  # Test: uniquement Valkey pour Linux
+        *) echo "" ;;
+    esac
+}
+
+# Vérifier si un service est supporté sur un OS donné
+is_service_supported_on_os() {
+    local service="$1"
+    local os="$2"
+
+    local services
+    services=$(get_services_for_os "$os")
+    [[ " $services " =~ \ $service\  ]]
+}
+
 # Vérifier si un service est single-version
 is_single_version_service() {
     local service="$1"
@@ -22,31 +58,38 @@ is_single_version_service() {
 # Fonction utilitaire : obtenir les versions supportées pour un service
 get_supported_versions() {
     local service="$1"
+    local os="${2:-}"  # OS optionnel pour filtrer les versions
+
     if [[ -z "$service" ]]; then
-        echo "Usage: get_supported_versions <service>" >&2
+        echo "Usage: get_supported_versions <service> [os]" >&2
         return 1
     fi
 
+    local versions=""
     case "$service" in
         "mariadb")
-            echo "10 11 12"
+            versions="10 11 12"
             ;;
         "mysql")
-            echo "8 9"
+            versions="8 9"
             ;;
         "postgresql")
-            echo "14 15 16 17 18"
+            versions="14 15 16 17 18"
             ;;
         "redis")
-            echo "8"
+            versions="8"
             ;;
         "valkey")
-            echo "9"
+            versions="9"
             ;;
         *)
-            echo ""
+            versions=""
             ;;
     esac
+
+    # Filtrer les versions par OS si spécifié (pas de filtrage nécessaire pour le moment)
+
+    echo "$versions"
 }
 
 # Fonction utilitaire : vérifier si une version est supportée
