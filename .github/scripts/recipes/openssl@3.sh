@@ -36,7 +36,8 @@ build() {
             ;;
         *)
             # Linux: Set RPATH to find bundled libraries relative to binary location
-            export LDFLAGS="-L${PREFIX}/lib -Wl,-rpath,\$ORIGIN/../lib"
+            # Note: $$ is needed so make passes $ORIGIN to the linker (make interprets single $)
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-rpath,\$\$ORIGIN/../lib"
             ;;
     esac
 
