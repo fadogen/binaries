@@ -26,11 +26,11 @@ jobs:
       - name: "Download metadata files from R2"
         run: |
           for arch in arm64 x86_64; do
-            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-${arch}.json metadata-typesense-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-              echo "Downloaded existing metadata-typesense-${arch}.json"
+            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-darwin-${arch}.json metadata-typesense-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+              echo "Downloaded existing metadata-typesense-darwin-${arch}.json"
             else
-              echo '{}' > metadata-typesense-${arch}.json
-              echo "Created empty metadata-typesense-${arch}.json"
+              echo '{}' > metadata-typesense-darwin-${arch}.json
+              echo "Created empty metadata-typesense-darwin-${arch}.json"
             fi
           done
 
@@ -47,7 +47,7 @@ jobs:
           echo "Latest Typesense version: $LATEST_VERSION"
 
           # Get version from metadata (check any arch, they should be in sync)
-          METADATA_VERSION=$(jq -r '.latest // ""' metadata-typesense-arm64.json)
+          METADATA_VERSION=$(jq -r '.latest // ""' metadata-typesense-darwin-arm64.json)
           echo "Metadata version: ${METADATA_VERSION:-none}"
 
           # Compare versions
@@ -155,7 +155,7 @@ jobs:
       - name: "Create archive"
         run: |
           VERSION="${{ needs.check-typesense-version.outputs.typesense-version }}"
-          ARCHIVE_NAME="typesense-${VERSION}-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="typesense-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
 
           # Create archive with just the binary at root
           tar -czf "$ARCHIVE_NAME" typesense-server
@@ -165,7 +165,7 @@ jobs:
       - name: "Upload archive to R2 with SHA-256 checksum"
         run: |
           VERSION="${{ needs.check-typesense-version.outputs.typesense-version }}"
-          ARCHIVE_NAME="typesense-${VERSION}-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="typesense-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
 
           if [[ ! -f "$ARCHIVE_NAME" ]]; then
             echo "[ERROR] Archive not found: $ARCHIVE_NAME"
@@ -179,7 +179,7 @@ jobs:
             --body "$ARCHIVE_NAME" \
             --endpoint-url ${{ secrets.R2_ENDPOINT }} \
             --checksum-algorithm SHA256 \
-            --metadata tool="typesense",version="$VERSION",arch="${{ matrix.arch }}" \
+            --metadata tool="typesense",version="$VERSION",os="darwin",arch="${{ matrix.arch }}" \
             --output json)
 
           # Extract checksum from upload response and convert to hex
@@ -189,13 +189,13 @@ jobs:
           echo "Uploaded $ARCHIVE_NAME (SHA-256: $CHECKSUM_HEX)"
 
           # Save checksum info (format: version,arch,sha256,filename)
-          echo "${VERSION},${{ matrix.arch }},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-typesense-${{ matrix.arch }}.txt
+          echo "${VERSION},${{ matrix.arch }},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-typesense-darwin-${{ matrix.arch }}.txt
 
       - name: "Upload checksum info"
         uses: actions/upload-artifact@v6
         with:
-          name: checksum-typesense-${{ matrix.arch }}
-          path: checksum-typesense-${{ matrix.arch }}.txt
+          name: checksum-typesense-darwin-${{ matrix.arch }}
+          path: checksum-typesense-darwin-${{ matrix.arch }}.txt
           retention-days: 1
 
   update-metadata:
@@ -211,24 +211,24 @@ jobs:
       - name: "Download checksum artifacts"
         uses: actions/download-artifact@v7
         with:
-          pattern: checksum-typesense-*
+          pattern: checksum-typesense-darwin-*
           merge-multiple: true
 
       - name: "Download existing metadata from R2"
         run: |
           for arch in arm64 x86_64; do
-            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-${arch}.json metadata-typesense-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-              echo "Downloaded existing metadata-typesense-${arch}.json"
+            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-darwin-${arch}.json metadata-typesense-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+              echo "Downloaded existing metadata-typesense-darwin-${arch}.json"
             else
-              echo '{}' > metadata-typesense-${arch}.json
-              echo "Created empty metadata-typesense-${arch}.json"
+              echo '{}' > metadata-typesense-darwin-${arch}.json
+              echo "Created empty metadata-typesense-darwin-${arch}.json"
             fi
           done
 
       - name: "Update metadata"
         run: |
           for arch in arm64 x86_64; do
-            CHECKSUM_FILE="checksum-typesense-${arch}.txt"
+            CHECKSUM_FILE="checksum-typesense-darwin-${arch}.txt"
 
             if [[ ! -f "$CHECKSUM_FILE" ]]; then
               echo "No checksum for $arch (build may have failed), skipping"
@@ -247,17 +247,17 @@ jobs:
                 "latest": $latest,
                 "sha256": $sha256,
                 "filename": $filename
-              }' > metadata-typesense-${arch}.json
+              }' > metadata-typesense-darwin-${arch}.json
 
-            echo "Updated metadata-typesense-${arch}.json:"
-            cat metadata-typesense-${arch}.json
+            echo "Updated metadata-typesense-darwin-${arch}.json:"
+            cat metadata-typesense-darwin-${arch}.json
           done
 
       - name: "Upload metadata files to R2"
         run: |
           for arch in arm64 x86_64; do
-            aws s3 cp metadata-typesense-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
-            echo "Uploaded metadata-typesense-${arch}.json"
+            aws s3 cp metadata-typesense-darwin-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+            echo "Uploaded metadata-typesense-darwin-${arch}.json"
           done
 
   cleanup-old-builds:
@@ -272,14 +272,14 @@ jobs:
       - name: "Download metadata files from R2"
         run: |
           for arch in arm64 x86_64; do
-            aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-${arch}.json metadata-typesense-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+            aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-typesense-darwin-${arch}.json metadata-typesense-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
           done
 
       - name: "Cleanup old builds"
         run: |
           for arch in arm64 x86_64; do
             # Extract current filename from metadata
-            CURRENT_FILENAME=$(jq -r '.filename // ""' metadata-typesense-${arch}.json)
+            CURRENT_FILENAME=$(jq -r '.filename // ""' metadata-typesense-darwin-${arch}.json)
 
             if [[ -z "$CURRENT_FILENAME" ]]; then
               echo "No current filename for $arch, skipping cleanup"

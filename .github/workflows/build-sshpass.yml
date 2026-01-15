@@ -141,7 +141,7 @@ jobs:
             --body "$ARCHIVE_NAME" \
             --endpoint-url ${{ secrets.R2_ENDPOINT }} \
             --checksum-algorithm SHA256 \
-            --metadata tool="sshpass",version="$VERSION",arch="${{ matrix.arch }}" \
+            --metadata tool="sshpass",version="$VERSION",os="darwin",arch="${{ matrix.arch }}" \
             --output json)
 
           # Extract checksum from upload response and convert to hex
@@ -151,13 +151,13 @@ jobs:
           echo "Uploaded $ARCHIVE_NAME (SHA-256: $CHECKSUM_HEX)"
 
           # Save checksum info (format: version,arch,sha256,filename)
-          echo "${VERSION},${{ matrix.arch }},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-sshpass-${{ matrix.arch }}.txt
+          echo "${VERSION},${{ matrix.arch }},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-sshpass-darwin-${{ matrix.arch }}.txt
 
       - name: "Upload checksum info"
         uses: actions/upload-artifact@v6
         with:
-          name: checksum-sshpass-${{ matrix.arch }}
-          path: checksum-sshpass-${{ matrix.arch }}.txt
+          name: checksum-sshpass-darwin-${{ matrix.arch }}
+          path: checksum-sshpass-darwin-${{ matrix.arch }}.txt
           retention-days: 1
 
   update-metadata:
@@ -173,13 +173,13 @@ jobs:
       - name: "Download checksum artifacts"
         uses: actions/download-artifact@v7
         with:
-          pattern: checksum-sshpass-*
+          pattern: checksum-sshpass-darwin-*
           merge-multiple: true
 
       - name: "Update metadata"
         run: |
           for arch in arm64 x86_64; do
-            CHECKSUM_FILE="checksum-sshpass-${arch}.txt"
+            CHECKSUM_FILE="checksum-sshpass-darwin-${arch}.txt"
 
             if [[ ! -f "$CHECKSUM_FILE" ]]; then
               echo "No checksum for $arch (build may have failed), skipping"

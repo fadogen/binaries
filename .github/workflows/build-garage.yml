@@ -23,11 +23,11 @@ jobs:
       - name: "Download metadata files from R2"
         run: |
           for arch in arm64 x86_64; do
-            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-garage-${arch}.json metadata-garage-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-              echo "Downloaded existing metadata-garage-${arch}.json"
+            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-garage-darwin-${arch}.json metadata-garage-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+              echo "Downloaded existing metadata-garage-darwin-${arch}.json"
             else
-              echo '{}' > metadata-garage-${arch}.json
-              echo "Created empty metadata-garage-${arch}.json"
+              echo '{}' > metadata-garage-darwin-${arch}.json
+              echo "Created empty metadata-garage-darwin-${arch}.json"
             fi
           done
 
@@ -57,7 +57,7 @@ jobs:
           echo "Latest Garage version: $LATEST_VERSION"
 
           # Get version from metadata (check any arch, they should be in sync)
-          METADATA_VERSION=$(jq -r '.latest // ""' metadata-garage-arm64.json)
+          METADATA_VERSION=$(jq -r '.latest // ""' metadata-garage-darwin-arm64.json)
           echo "Metadata version: ${METADATA_VERSION:-none}"
 
           # Compare versions
@@ -188,7 +188,7 @@ jobs:
       - name: "Create archive"
         run: |
           VERSION="${{ needs.check-garage-version.outputs.garage-version }}"
-          ARCHIVE_NAME="garage-${VERSION}-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="garage-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
 
           # Make binary executable
           chmod +x garage
@@ -205,7 +205,7 @@ jobs:
       - name: "Upload archive to R2 with SHA-256 checksum"
         run: |
           VERSION="${{ needs.check-garage-version.outputs.garage-version }}"
-          ARCHIVE_NAME="garage-${VERSION}-${{ matrix.arch }}.tar.gz"
+          ARCHIVE_NAME="garage-${VERSION}-darwin-${{ matrix.arch }}.tar.gz"
 
           if [[ ! -f "$ARCHIVE_NAME" ]]; then
             echo "[ERROR] Archive not found: $ARCHIVE_NAME"
@@ -219,7 +219,7 @@ jobs:
             --body "$ARCHIVE_NAME" \
             --endpoint-url ${{ secrets.R2_ENDPOINT }} \
             --checksum-algorithm SHA256 \
-            --metadata tool="garage",version="$VERSION",arch="${{ matrix.arch }}" \
+            --metadata tool="garage",version="$VERSION",os="darwin",arch="${{ matrix.arch }}" \
             --output json)
 
           # Extract checksum from upload response and convert to hex
@@ -229,13 +229,13 @@ jobs:
           echo "Uploaded $ARCHIVE_NAME (SHA-256: $CHECKSUM_HEX)"
 
           # Save checksum info (format: version,arch,sha256,filename)
-          echo "${VERSION},${{ matrix.arch }},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-garage-${{ matrix.arch }}.txt
+          echo "${VERSION},${{ matrix.arch }},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-garage-darwin-${{ matrix.arch }}.txt
 
       - name: "Upload checksum info"
         uses: actions/upload-artifact@v6
         with:
-          name: checksum-garage-${{ matrix.arch }}
-          path: checksum-garage-${{ matrix.arch }}.txt
+          name: checksum-garage-darwin-${{ matrix.arch }}
+          path: checksum-garage-darwin-${{ matrix.arch }}.txt
           retention-days: 1
 
   update-metadata:
@@ -251,24 +251,24 @@ jobs:
       - name: "Download checksum artifacts"
         uses: actions/download-artifact@v7
         with:
-          pattern: checksum-garage-*
+          pattern: checksum-garage-darwin-*
           merge-multiple: true
 
       - name: "Download existing metadata from R2"
         run: |
           for arch in arm64 x86_64; do
-            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-garage-${arch}.json metadata-garage-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-              echo "Downloaded existing metadata-garage-${arch}.json"
+            if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-garage-darwin-${arch}.json metadata-garage-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
+              echo "Downloaded existing metadata-garage-darwin-${arch}.json"
             else
-              echo '{}' > metadata-garage-${arch}.json
-              echo "Created empty metadata-garage-${arch}.json"
+              echo '{}' > metadata-garage-darwin-${arch}.json
+              echo "Created empty metadata-garage-darwin-${arch}.json"
             fi
           done
 
       - name: "Update metadata"
         run: |
           for arch in arm64 x86_64; do
-            CHECKSUM_FILE="checksum-garage-${arch}.txt"
+            CHECKSUM_FILE="checksum-garage-darwin-${arch}.txt"
 
             if [[ ! -f "$CHECKSUM_FILE" ]]; then
               echo "No checksum for $arch (build may have failed), skipping"
@@ -287,17 +287,17 @@ jobs:
                 "latest": $latest,
                 "sha256": $sha256,
                 "filename": $filename
-              }' > metadata-garage-${arch}.json
+              }' > metadata-garage-darwin-${arch}.json
 
-            echo "Updated metadata-garage-${arch}.json:"
-            cat metadata-garage-${arch}.json
+            echo "Updated metadata-garage-darwin-${arch}.json:"
+            cat metadata-garage-darwin-${arch}.json
           done
 
       - name: "Upload metadata files to R2"
         run: |
           for arch in arm64 x86_64; do
-            aws s3 cp metadata-garage-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-garage-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
-            echo "Uploaded metadata-garage-${arch}.json"
+            aws s3 cp metadata-garage-darwin-${arch}.json s3://${{ secrets.R2_BUCKET_NAME }}/metadata-garage-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+            echo "Uploaded metadata-garage-darwin-${arch}.json"
           done
 
   cleanup-old-builds:
@@ -312,14 +312,14 @@ jobs:
       - name: "Download metadata files from R2"
         run: |
           for arch in arm64 x86_64; do
-            aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-garage-${arch}.json metadata-garage-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+            aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/metadata-garage-darwin-${arch}.json metadata-garage-darwin-${arch}.json --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
           done
 
       - name: "Cleanup old builds"
         run: |
           for arch in arm64 x86_64; do
             # Extract current filename from metadata
-            CURRENT_FILENAME=$(jq -r '.filename // ""' metadata-garage-${arch}.json)
+            CURRENT_FILENAME=$(jq -r '.filename // ""' metadata-garage-darwin-${arch}.json)
 
             if [[ -z "$CURRENT_FILENAME" ]]; then
               echo "No current filename for $arch, skipping cleanup"
