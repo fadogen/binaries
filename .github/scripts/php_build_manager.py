@@ -120,6 +120,10 @@ def check_versions():
 
         # Check each os+arch combination independently
         for (os_name, arch), config in TARGET_CONFIG.items():
+            # TEMPORARY: Only build linux/arm64 for debugging
+            if os_name != 'linux' or arch != 'arm64':
+                continue
+
             key = (os_name, arch)
             metadata = metadata_by_target[key]
             need_build = False
