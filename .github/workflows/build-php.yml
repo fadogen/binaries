@@ -101,9 +101,14 @@ jobs:
       - name: "Download sources"
         run: |
           # On Linux, use glibc to support shared extensions (musl doesn't support dlopen)
-          # Use native gcc on both x86_64 and arm64 runners (faster than Zig cross-compilation)
+          # - x86_64: use native gcc (SPC_LIBC=glibc)
+          # - arm64: use Zig cross-compiler (SPC_TARGET) because native GCC has libsodium NEON bugs
           if [[ "${{ matrix.os }}" == "linux" ]]; then
-            export SPC_LIBC=glibc
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              export SPC_TARGET=aarch64-linux-gnu
+            else
+              export SPC_LIBC=glibc
+            fi
           fi
 
           EXTENSIONS="bcmath,bz2,calendar,ctype,curl,dba,dom,exif,ffi,fileinfo,filter,ftp,gd,gmp,iconv,igbinary,imagick,imap,intl,ldap,lz4,mbregex,mbstring,mongodb,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,pdo_sqlsrv,pgsql,phar,posix,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,sqlsrv,sysvmsg,sysvsem,sysvshm,tokenizer,xml,xmlreader,xmlwriter,xsl,zip,zlib"
@@ -129,14 +134,32 @@ jobs:
           # Apply IMAP compatibility patches before build (Linux only)
           .github/scripts/patch_imap.sh
 
+      - name: "Create libcrypt stub for Zig"
+        if: matrix.os == 'linux' && matrix.arch == 'arm64'
+        run: |
+          # Zig's sysroot doesn't have libcrypt, create a stub for IMAP's crypt() dependency
+          mkdir -p buildroot/lib
+          cat > /tmp/crypt_stub.c << 'EOF'
+          char *crypt(const char *phrase, const char *setting) { (void)phrase; (void)setting; return 0; }
+          char *crypt_r(const char *phrase, const char *setting, void *data) { (void)phrase; (void)setting; (void)data; return 0; }
+          EOF
+          gcc -c -fPIC -O2 -o /tmp/crypt_stub.o /tmp/crypt_stub.c
+          ar rcs buildroot/lib/libcrypt.a /tmp/crypt_stub.o
+          rm -f /tmp/crypt_stub.c /tmp/crypt_stub.o
+
       - name: "Build PHP"
         run: |
           export SPC_PHP_VERSION_SHORT=$(echo ${{ matrix.php-version }} | sed 's/\.//g' | cut -c1-2)
 
           # On Linux, use glibc to support shared extensions (musl doesn't support dlopen)
-          # Use native gcc on both x86_64 and arm64 runners
+          # - x86_64: use native gcc (SPC_LIBC=glibc)
+          # - arm64: use Zig cross-compiler (SPC_TARGET) because native GCC has libsodium NEON bugs
           if [[ "${{ matrix.os }}" == "linux" ]]; then
-            export SPC_LIBC=glibc
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              export SPC_TARGET=aarch64-linux-gnu
+            else
+              export SPC_LIBC=glibc
+            fi
           fi
 
           ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug \
