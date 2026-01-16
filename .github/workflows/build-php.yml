@@ -153,6 +153,16 @@ jobs:
 
           ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug -P .github/scripts/patch_fadogen_ini_scan.php
 
+      - name: "Upload build logs on failure"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ matrix.php-version }}-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            log/
+            source/php-src/config.log
+          retention-days: 7
+
       - name: "Import signing certificate"
         if: matrix.os == 'darwin'
         env:
