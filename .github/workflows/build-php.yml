@@ -134,6 +134,34 @@ jobs:
           # Apply IMAP compatibility patches before build (Linux only)
           .github/scripts/patch_imap.sh
 
+      - name: "Create libcrypt stub for Zig cross-compilation"
+        if: matrix.os == 'linux' && matrix.arch == 'arm64'
+        run: |
+          # Zig cross-compiler cannot find libcrypt, so we create a stub
+          # that provides the crypt() symbol for the configure test.
+          # The actual crypt() will be linked from glibc at runtime.
+          mkdir -p buildroot/lib
+
+          cat > /tmp/crypt_stub.c << 'EOF'
+          /* Stub for libcrypt - provides crypt() symbol for linking */
+          char *crypt(const char *phrase, const char *setting) {
+              (void)phrase; (void)setting;
+              return (char*)0;
+          }
+          char *crypt_r(const char *phrase, const char *setting, void *data) {
+              (void)phrase; (void)setting; (void)data;
+              return (char*)0;
+          }
+          EOF
+
+          # Use the system gcc (not zig) to compile the stub for ARM64
+          aarch64-linux-gnu-gcc -c -fPIC -O2 -o /tmp/crypt_stub.o /tmp/crypt_stub.c
+          aarch64-linux-gnu-ar rcs buildroot/lib/libcrypt.a /tmp/crypt_stub.o
+          rm -f /tmp/crypt_stub.c /tmp/crypt_stub.o
+
+          echo "Created libcrypt.a stub in buildroot/lib/"
+          ls -la buildroot/lib/
+
       - name: "Build PHP"
         run: |
           export SPC_PHP_VERSION_SHORT=$(echo ${{ matrix.php-version }} | sed 's/\.//g' | cut -c1-2)
