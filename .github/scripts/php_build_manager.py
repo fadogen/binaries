@@ -93,10 +93,6 @@ def check_versions():
         supported_versions = [v for v in all_supported if v in allowed_versions]
         print(f"Filtered supported versions: {supported_versions} (from {all_supported})")
 
-    # TEMPORARY: Only build PHP 8.4 for debugging
-    supported_versions = [v for v in supported_versions if v == "8.4"]
-    print(f"DEBUG: Restricted to PHP 8.4 only: {supported_versions}")
-
     version_details_cache = {}
     print("Fetching version details for all supported versions...")
     for version_branch in supported_versions:
@@ -120,10 +116,6 @@ def check_versions():
 
         # Check each os+arch combination independently
         for (os_name, arch), config in TARGET_CONFIG.items():
-            # TEMPORARY: Only build linux/arm64 for debugging
-            if os_name != 'linux' or arch != 'arm64':
-                continue
-
             key = (os_name, arch)
             metadata = metadata_by_target[key]
             need_build = False

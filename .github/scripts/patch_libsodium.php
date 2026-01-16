@@ -4,9 +4,15 @@
  * Based on commit 6702f69bef6044163acc7715e6ac7e430890ce78
  * https://github.com/jedisct1/libsodium/commit/6702f69bef6044163acc7715e6ac7e430890ce78
  *
- * This script runs at every patch point. We check if the file exists and hasn't
- * been patched yet, then apply the fix.
+ * This patch is only needed on Linux with GCC. macOS uses Clang which doesn't
+ * have this NEON type incompatibility issue.
  */
+
+// Only apply on Linux (GCC has the NEON issue, Clang on macOS doesn't)
+if (PHP_OS_FAMILY !== 'Linux') {
+    return;
+}
+
 $target = SOURCE_PATH . '/libsodium/src/libsodium/crypto_ipcrypt/ipcrypt_armcrypto.c';
 $marker = SOURCE_PATH . '/libsodium/.fadogen_patched';
 
