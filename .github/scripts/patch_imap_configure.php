@@ -9,7 +9,15 @@
  * so we need to provide a stub library that satisfies the linker.
  */
 
-if (patch_point() === 'before-configure') {
+$currentPoint = patch_point();
+
+// Debug: always print the current patch point
+if (getenv('SPC_DEBUG') || true) {
+    echo "  [patch_imap_configure] Current patch_point: '$currentPoint'\n";
+}
+
+// Run at before-php-buildconf (after libs are built, before PHP configure)
+if ($currentPoint === 'before-php-buildconf') {
     // Only apply on Linux
     if (PHP_OS_FAMILY !== 'Linux') {
         return;
