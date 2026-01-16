@@ -152,74 +152,13 @@ if [ "$PATCHED" = false ]; then
     echo "      This is expected if sources haven't been downloaded yet"
 fi
 
-# Patch 5: Add required libraries to PHP IMAP configure test
-# This is specific to static-php-cli and ensures PHP configure test links correctly
-echo "Checking PHP ext/imap/config.m4..."
-PHP_IMAP_CONFIG="$BASE_DIR/source/php-src/ext/imap/config.m4"
-if [ -f "$PHP_IMAP_CONFIG" ] && grep -q 'TST_LIBS="$DLIBS $IMAP_SHARED_LIBADD -lz"' "$PHP_IMAP_CONFIG"; then
-    sed -i 's|TST_LIBS="$DLIBS $IMAP_SHARED_LIBADD -lz"|TST_LIBS="$DLIBS $IMAP_SHARED_LIBADD -lssl -lcrypto -lz -lcrypt"|' "$PHP_IMAP_CONFIG"
-    echo "  ✓ Added -lssl -lcrypto -lcrypt to PHP configure test"
-fi
-
-# Patch 6: Create libcrypt compatibility layer for newer glibc symbols
-# This is specific to static builds on systems with glibc 2.38+ targeting older glibc
-# Provides __isoc23_strtoul and arc4random_buf symbols
-echo "Checking libcrypt compatibility layer..."
-BUILDROOT_LIB="$BASE_DIR/buildroot/lib"
-if [ -d "$BUILDROOT_LIB" ]; then
-    COMPAT_FILE="$BUILDROOT_LIB/libcrypt_compat.c"
-
-    # Create compatibility source file
-    cat > "$COMPAT_FILE" << 'EOF'
-/* Compatibility layer for libcrypt.a with older glibc
- * Provides missing symbols when building on glibc 2.38+ for older targets
- */
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <sys/random.h>
-
-/* ISO C23 strtoul - redirect to standard strtoul */
-unsigned long __isoc23_strtoul(const char *nptr, char **endptr, int base) {
-    return strtoul(nptr, endptr, base);
-}
-
-/* arc4random_buf - use getrandom() syscall with /dev/urandom fallback */
-void arc4random_buf(void *buf, size_t nbytes) {
-    if (getrandom(buf, nbytes, 0) < 0) {
-        /* Fallback to reading from /dev/urandom if getrandom fails */
-        FILE *f = fopen("/dev/urandom", "rb");
-        if (f) {
-            fread(buf, 1, nbytes, f);
-            fclose(f);
-        }
-    }
-}
-EOF
-
-    # Compile compatibility layer
-    CC="${CC:-gcc}"
-    $CC -c -fPIC "$COMPAT_FILE" -o "$BUILDROOT_LIB/libcrypt_compat.o"
-    ar rcs "$BUILDROOT_LIB/libcrypt_compat.a" "$BUILDROOT_LIB/libcrypt_compat.o"
-
-    # Copy system libcrypt.a and merge with compatibility layer
-    if [ -f "/usr/lib/aarch64-linux-gnu/libcrypt.a" ]; then
-        cp /usr/lib/aarch64-linux-gnu/libcrypt.a "$BUILDROOT_LIB/libcrypt.a"
-    elif [ -f "/usr/lib/x86_64-linux-gnu/libcrypt.a" ]; then
-        cp /usr/lib/x86_64-linux-gnu/libcrypt.a "$BUILDROOT_LIB/libcrypt.a"
-    fi
-
-    # Merge compatibility symbols into libcrypt.a
-    if [ -f "$BUILDROOT_LIB/libcrypt.a" ]; then
-        ar x "$BUILDROOT_LIB/libcrypt_compat.a" libcrypt_compat.o
-        ar r "$BUILDROOT_LIB/libcrypt.a" libcrypt_compat.o
-        rm -f libcrypt_compat.o "$BUILDROOT_LIB/libcrypt_compat.o" "$BUILDROOT_LIB/libcrypt_compat.a" "$COMPAT_FILE"
-        echo "  ✓ Created libcrypt.a with compatibility layer"
-    fi
-fi
+# Note: Patch 5 (config.m4) and Patch 6 (libcrypt) are now handled by
+# the PHP patch script (patch_imap_configure.php) which runs at the correct
+# time during the static-php-cli build process.
 
 echo ""
-echo "✅ IMAP patch script completed"
+echo "✅ IMAP source patches completed"
+echo "   (config.m4 and libcrypt patches will be applied later by patch_imap_configure.php)"
 echo ""
 
 exit 0

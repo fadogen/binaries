@@ -151,7 +151,9 @@ jobs:
             fi
           fi
 
-          ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug -P .github/scripts/patch_fadogen_ini_scan.php
+          ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug \
+            -P .github/scripts/patch_fadogen_ini_scan.php \
+            -P .github/scripts/patch_imap_configure.php
 
       - name: "Upload build logs on failure"
         if: failure()
