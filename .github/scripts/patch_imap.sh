@@ -152,13 +152,8 @@ if [ "$PATCHED" = false ]; then
     echo "      This is expected if sources haven't been downloaded yet"
 fi
 
-# Note: Patch 5 (config.m4) and Patch 6 (libcrypt) are now handled by
-# the PHP patch script (patch_imap_configure.php) which runs at the correct
-# time during the static-php-cli build process.
-
 echo ""
 echo "✅ IMAP source patches completed"
-echo "   (config.m4 and libcrypt patches will be applied later by patch_imap_configure.php)"
 echo ""
 
 exit 0

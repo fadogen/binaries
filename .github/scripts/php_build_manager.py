@@ -93,9 +93,9 @@ def check_versions():
         supported_versions = [v for v in all_supported if v in allowed_versions]
         print(f"Filtered supported versions: {supported_versions} (from {all_supported})")
 
-    # TEMPORARY: Only build PHP 8.5 for debugging
-    supported_versions = [v for v in supported_versions if v == "8.5"]
-    print(f"DEBUG: Restricted to PHP 8.5 only: {supported_versions}")
+    # TEMPORARY: Only build PHP 8.4 for debugging
+    supported_versions = [v for v in supported_versions if v == "8.4"]
+    print(f"DEBUG: Restricted to PHP 8.4 only: {supported_versions}")
 
     version_details_cache = {}
     print("Fetching version details for all supported versions...")

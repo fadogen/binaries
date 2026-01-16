@@ -101,14 +101,9 @@ jobs:
       - name: "Download sources"
         run: |
           # On Linux, use glibc to support shared extensions (musl doesn't support dlopen)
-          # - x86_64: use SPC_LIBC=glibc with native gcc (faster, avoids Zig SSE2 bugs)
-          # - arm64: use SPC_TARGET with Zig for cross-compilation from x86_64 runner
+          # Use native gcc on both x86_64 and arm64 runners (faster than Zig cross-compilation)
           if [[ "${{ matrix.os }}" == "linux" ]]; then
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              export SPC_TARGET=aarch64-linux-gnu
-            else
-              export SPC_LIBC=glibc
-            fi
+            export SPC_LIBC=glibc
           fi
 
           EXTENSIONS="bcmath,bz2,calendar,ctype,curl,dba,dom,exif,ffi,fileinfo,filter,ftp,gd,gmp,iconv,igbinary,imagick,imap,intl,ldap,lz4,mbregex,mbstring,mongodb,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,pdo_sqlsrv,pgsql,phar,posix,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,sqlsrv,sysvmsg,sysvsem,sysvshm,tokenizer,xml,xmlreader,xmlwriter,xsl,zip,zlib"
@@ -134,54 +129,18 @@ jobs:
           # Apply IMAP compatibility patches before build (Linux only)
           .github/scripts/patch_imap.sh
 
-      - name: "Create libcrypt stub for Zig cross-compilation"
-        if: matrix.os == 'linux' && matrix.arch == 'arm64'
-        run: |
-          # Zig cross-compiler cannot find libcrypt, so we create a stub
-          # that provides the crypt() symbol for the configure test.
-          # The actual crypt() will be linked from glibc at runtime.
-          mkdir -p buildroot/lib
-
-          cat > /tmp/crypt_stub.c << 'EOF'
-          /* Stub for libcrypt - provides crypt() symbol for linking */
-          char *crypt(const char *phrase, const char *setting) {
-              (void)phrase; (void)setting;
-              return (char*)0;
-          }
-          char *crypt_r(const char *phrase, const char *setting, void *data) {
-              (void)phrase; (void)setting; (void)data;
-              return (char*)0;
-          }
-          EOF
-
-          # Use the system gcc (not zig) to compile the stub for ARM64
-          aarch64-linux-gnu-gcc -c -fPIC -O2 -o /tmp/crypt_stub.o /tmp/crypt_stub.c
-          aarch64-linux-gnu-ar rcs buildroot/lib/libcrypt.a /tmp/crypt_stub.o
-          rm -f /tmp/crypt_stub.c /tmp/crypt_stub.o
-
-          echo "Created libcrypt.a stub in buildroot/lib/"
-          ls -la buildroot/lib/
-
       - name: "Build PHP"
         run: |
           export SPC_PHP_VERSION_SHORT=$(echo ${{ matrix.php-version }} | sed 's/\.//g' | cut -c1-2)
 
           # On Linux, use glibc to support shared extensions (musl doesn't support dlopen)
-          # - x86_64: use SPC_LIBC=glibc with native gcc (faster, avoids Zig SSE2 bugs)
-          # - arm64: use SPC_TARGET with Zig for cross-compilation from x86_64 runner
+          # Use native gcc on both x86_64 and arm64 runners
           if [[ "${{ matrix.os }}" == "linux" ]]; then
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              export SPC_TARGET=aarch64-linux-gnu
-              # Increase file descriptor limit for Zig compilation
-              ulimit -n 65536
-            else
-              export SPC_LIBC=glibc
-            fi
+            export SPC_LIBC=glibc
           fi
 
           ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug \
-            -P .github/scripts/patch_fadogen_ini_scan.php \
-            -P .github/scripts/patch_imap_configure.php
+            -P .github/scripts/patch_fadogen_ini_scan.php
 
       - name: "Upload build logs on failure"
         if: failure()
