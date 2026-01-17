@@ -30,11 +30,15 @@ export DEPENDENCIES_LINUX=(
 )
 
 # Build dependencies (via Homebrew, not in bundle)
-# Note: openjdk is macOS-only (for JDBC connector)
+# Note: On Linux, uses_from_macos libs are provided by Homebrew/Linuxbrew
 export BUILD_DEPENDENCIES=(
     "bison"
+    "bzip2"
     "cmake"
     "fmt"
+    "libedit"
+    "libxml2"
+    "ncurses"
     "pkgconf"
 )
 

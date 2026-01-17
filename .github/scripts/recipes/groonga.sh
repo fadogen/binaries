@@ -29,8 +29,10 @@ export DEPENDENCIES=(
 )
 
 # Build dependencies (via Homebrew, not in bundle)
+# libedit is uses_from_macos in Homebrew (system on macOS, Linuxbrew on Linux)
 export BUILD_DEPENDENCIES=(
     "cmake"
+    "libedit"
     "pkgconf"
 )
 
