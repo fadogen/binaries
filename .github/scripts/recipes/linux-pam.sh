@@ -62,6 +62,7 @@ build() {
     # Configure with meson
     meson setup build \
         --prefix="${PREFIX}" \
+        --libdir="${PREFIX}/lib" \
         --sysconfdir="${PREFIX}/etc" \
         -Dsecuredir="${PREFIX}/lib/security"
 
