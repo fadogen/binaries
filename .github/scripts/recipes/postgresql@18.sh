@@ -80,15 +80,20 @@ build() {
             ;;
     esac
 
-    # Set XML catalog for docbook (if available)
-    if [ -f "/opt/homebrew/etc/xml/catalog" ]; then
-        export XML_CATALOG_FILES="/opt/homebrew/etc/xml/catalog"
-    elif [ -f "/usr/local/etc/xml/catalog" ]; then
-        export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
-    elif [ -f "${PREFIX}/etc/xml/catalog" ]; then
-        export XML_CATALOG_FILES="${PREFIX}/etc/xml/catalog"
-    elif [ -f "/etc/xml/catalog" ]; then
-        export XML_CATALOG_FILES="/etc/xml/catalog"
+    # Set XML catalog for docbook (use Homebrew's catalog)
+    # On macOS: /opt/homebrew/etc or /usr/local/etc
+    # On Linux: /home/linuxbrew/.linuxbrew/etc
+    if [ "$OS_NAME" = "Darwin" ]; then
+        if [ -f "/opt/homebrew/etc/xml/catalog" ]; then
+            export XML_CATALOG_FILES="/opt/homebrew/etc/xml/catalog"
+        elif [ -f "/usr/local/etc/xml/catalog" ]; then
+            export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
+        fi
+    else
+        # Linux with Linuxbrew
+        if [ -f "/home/linuxbrew/.linuxbrew/etc/xml/catalog" ]; then
+            export XML_CATALOG_FILES="/home/linuxbrew/.linuxbrew/etc/xml/catalog"
+        fi
     fi
 
     # Detect number of CPU cores (cross-platform)
