@@ -68,11 +68,7 @@ get_supported_versions() {
     local versions=""
     case "$service" in
         "mariadb")
-            if [[ "$os" == "linux" ]]; then
-                versions="11 12"
-            else
-                versions="10 11 12"
-            fi
+            versions="10 11 12"
             ;;
         "mysql")
             versions="8 9"
