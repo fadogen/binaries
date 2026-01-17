@@ -1,16 +1,16 @@
 #!/bin/bash
-# Build recipe for libunistring
-# Description: C string library for manipulating Unicode strings
+# Build recipe for pkgconf
+# Description: Package compiler and linker metadata toolkit
 
 set -e
 
 # Metadata
-export PACKAGE_NAME="libunistring"
-export PACKAGE_VERSION="1.4.1"
-export PACKAGE_SHA256="12542ad7619470efd95a623174dcd4b364f2483caf708c6bee837cb53a54cb9d"
+export PACKAGE_NAME="pkgconf"
+export PACKAGE_VERSION="2.5.1"
+export PACKAGE_SHA256="cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243"
 
 # Derived from version
-export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
+export PACKAGE_URL="https://distfiles.ariadne.space/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.xz"
 
 # No runtime dependencies
 export DEPENDENCIES=()
@@ -34,9 +34,6 @@ build() {
     case "$OS_NAME" in
         Darwin)
             export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
-            # macOS iconv workaround for Sonoma and later
-            # https://savannah.gnu.org/bugs/?65686
-            export am_cv_func_iconv_works="yes"
             ;;
         *)
             export LDFLAGS="-L${PREFIX}/lib"
@@ -55,19 +52,28 @@ build() {
 
     cd "${SOURCE_DIR}"
 
+    # Build pkg-config search path
+    local PC_PATH="${PREFIX}/lib/pkgconfig:${PREFIX}/share/pkgconfig"
+
     # Configure
     ./configure \
         --prefix="${PREFIX}" \
-        --disable-silent-rules
+        --disable-silent-rules \
+        --with-pkg-config-dir="${PC_PATH}" \
+        --with-system-includedir="/usr/include" \
+        --with-system-libdir="/usr/lib"
 
     # Build
     make -j"$NPROC"
 
-    # Skip tests on macOS (iconv issues on Sonoma+)
-    # make check
-
     # Install directly to final location
     make install
+
+    # Create pkg-config symlink for compatibility
+    ln -sf pkgconf "${PREFIX}/bin/pkg-config"
+    if [ -f "${PREFIX}/share/man/man1/pkgconf.1" ]; then
+        ln -sf pkgconf.1 "${PREFIX}/share/man/man1/pkg-config.1"
+    fi
 
     echo "✓ ${PACKAGE_NAME} built successfully"
 }

@@ -22,26 +22,50 @@ build() {
 
     echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
+    # Detect OS
+    local OS_NAME
+    OS_NAME="$(uname)"
+
     # ICU builds from the "source" subdirectory
     cd "${SOURCE_DIR}/source"
 
-    # Add headerpad for install_name_tool (CRITICAL for relocation)
-    export LDFLAGS="-Wl,-headerpad_max_install_names"
+    # Platform-specific LDFLAGS
+    case "$OS_NAME" in
+        Darwin)
+            # Add headerpad for install_name_tool (CRITICAL for relocation on macOS)
+            export LDFLAGS="-Wl,-headerpad_max_install_names"
+            ;;
+        *)
+            export LDFLAGS=""
+            ;;
+    esac
+
+    # Detect number of CPU cores (cross-platform)
+    local NPROC
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
 
     # Configure arguments (from Homebrew formula)
     local args=(
         "--prefix=${PREFIX}"
-        "--disable-samples"      # Don't build sample programs
-        "--disable-tests"        # Don't build tests
-        "--enable-static"        # Build static libraries
-        "--with-library-bits=64" # 64-bit build
+        "--disable-debug"
+        "--disable-dependency-tracking"
+        "--disable-samples"
+        "--disable-tests"
+        "--enable-static"
+        "--with-library-bits=64"
     )
 
     # Configure
     ./configure "${args[@]}"
 
     # Build (parallel)
-    make -j"$(sysctl -n hw.ncpu)"
+    make -j"$NPROC"
 
     # Install directly to final location
     make install

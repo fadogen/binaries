@@ -1,16 +1,16 @@
 #!/bin/bash
-# Build recipe for lz4
-# Description: Extremely Fast Compression algorithm
+# Build recipe for libxcrypt
+# Description: Extended crypt library for descrypt, md5crypt, bcrypt, and others
 
 set -e
 
 # Metadata
-export PACKAGE_NAME="lz4"
-export PACKAGE_VERSION="1.10.0"
-export PACKAGE_SHA256="537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b"
+export PACKAGE_NAME="libxcrypt"
+export PACKAGE_VERSION="4.5.2"
+export PACKAGE_SHA256="71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071"
 
 # Derived from version
-export PACKAGE_URL="https://github.com/${PACKAGE_NAME}/${PACKAGE_NAME}/archive/refs/tags/v${PACKAGE_VERSION}.tar.gz"
+export PACKAGE_URL="https://github.com/besser82/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.xz"
 
 # No runtime dependencies
 export DEPENDENCIES=()
@@ -26,7 +26,7 @@ build() {
     local OS_NAME
     OS_NAME="$(uname)"
 
-    # Set environment
+    # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
     export CPPFLAGS="-I${PREFIX}/include"
 
@@ -52,20 +52,20 @@ build() {
 
     cd "${SOURCE_DIR}"
 
-    # Build with make (lz4 doesn't use configure)
-    make -j"$NPROC" PREFIX="${PREFIX}"
+    # Configure (matching Homebrew options)
+    ./configure \
+        --prefix="${PREFIX}" \
+        --disable-static \
+        --disable-obsolete-api \
+        --disable-xcrypt-compat-files \
+        --disable-failure-tokens \
+        --disable-valgrind
+
+    # Build
+    make -j"$NPROC"
 
     # Install directly to final location
-    make install PREFIX="${PREFIX}"
-
-    # Fix pkgconfig file to use correct prefix
-    local PC_FILE="${PREFIX}/lib/pkgconfig/liblz4.pc"
-    if [ -f "$PC_FILE" ]; then
-        case "$OS_NAME" in
-            Darwin) sed -i '' "s|^prefix=.*|prefix=${PREFIX}|" "$PC_FILE" ;;
-            *) sed -i "s|^prefix=.*|prefix=${PREFIX}|" "$PC_FILE" ;;
-        esac
-    fi
+    make install
 
     echo "✓ ${PACKAGE_NAME} built successfully"
 }

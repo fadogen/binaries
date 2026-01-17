@@ -1,19 +1,21 @@
 #!/bin/bash
-# Build recipe for lz4
-# Description: Extremely Fast Compression algorithm
+# Build recipe for libtirpc
+# Description: Port of Sun's Transport-Independent RPC library to Linux
 
 set -e
 
 # Metadata
-export PACKAGE_NAME="lz4"
-export PACKAGE_VERSION="1.10.0"
-export PACKAGE_SHA256="537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b"
+export PACKAGE_NAME="libtirpc"
+export PACKAGE_VERSION="1.3.7"
+export PACKAGE_SHA256="b47d3ac19d3549e54a05d0019a6c400674da716123858cfdb6d3bdd70a66c702"
 
 # Derived from version
-export PACKAGE_URL="https://github.com/${PACKAGE_NAME}/${PACKAGE_NAME}/archive/refs/tags/v${PACKAGE_VERSION}.tar.gz"
+export PACKAGE_URL="https://downloads.sourceforge.net/project/${PACKAGE_NAME}/${PACKAGE_NAME}/${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.bz2"
 
-# No runtime dependencies
-export DEPENDENCIES=()
+# Runtime dependencies
+export DEPENDENCIES=(
+    "krb5"
+)
 
 # Build function
 build() {
@@ -26,14 +28,16 @@ build() {
     local OS_NAME
     OS_NAME="$(uname)"
 
-    # Set environment
+    # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
     export CPPFLAGS="-I${PREFIX}/include"
 
-    # Platform-specific LDFLAGS
+    # Platform-specific flags
     case "$OS_NAME" in
         Darwin)
             export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            # macOS-specific flag for RFC 3542 compliance
+            export CFLAGS="-D__APPLE_USE_RFC_3542"
             ;;
         *)
             export LDFLAGS="-L${PREFIX}/lib"
@@ -52,20 +56,16 @@ build() {
 
     cd "${SOURCE_DIR}"
 
-    # Build with make (lz4 doesn't use configure)
-    make -j"$NPROC" PREFIX="${PREFIX}"
+    # Configure (keep debug enabled as per Homebrew formula)
+    ./configure \
+        --prefix="${PREFIX}" \
+        --disable-silent-rules
+
+    # Build
+    make -j"$NPROC"
 
     # Install directly to final location
-    make install PREFIX="${PREFIX}"
-
-    # Fix pkgconfig file to use correct prefix
-    local PC_FILE="${PREFIX}/lib/pkgconfig/liblz4.pc"
-    if [ -f "$PC_FILE" ]; then
-        case "$OS_NAME" in
-            Darwin) sed -i '' "s|^prefix=.*|prefix=${PREFIX}|" "$PC_FILE" ;;
-            *) sed -i "s|^prefix=.*|prefix=${PREFIX}|" "$PC_FILE" ;;
-        esac
-    fi
+    make install
 
     echo "✓ ${PACKAGE_NAME} built successfully"
 }

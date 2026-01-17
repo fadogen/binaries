@@ -33,7 +33,7 @@ get_services_for_os() {
     local os="$1"
     case "$os" in
         darwin) echo "mariadb mysql postgresql redis valkey" ;;
-        linux) echo "redis valkey" ;;
+        linux) echo "postgresql redis valkey" ;;
         *) echo "" ;;
     esac
 }
@@ -74,7 +74,12 @@ get_supported_versions() {
             versions="8 9"
             ;;
         "postgresql")
-            versions="14 15 16 17 18"
+            # Sur Linux, seule la version 18 est supportée pour le moment
+            if [[ "$os" == "linux" ]]; then
+                versions="18"
+            else
+                versions="14 15 16 17 18"
+            fi
             ;;
         "redis")
             versions="8"
@@ -86,8 +91,6 @@ get_supported_versions() {
             versions=""
             ;;
     esac
-
-    # Filtrer les versions par OS si spécifié (pas de filtrage nécessaire pour le moment)
 
     echo "$versions"
 }

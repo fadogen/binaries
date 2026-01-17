@@ -141,7 +141,10 @@ build_package() {
         echo "URL=${PACKAGE_URL}"
         echo "SHA256=${PACKAGE_SHA256}"
         echo "DEPS=${DEPENDENCIES[*]}"
+        echo "LINUX_DEPS=${DEPENDENCIES_LINUX[*]}"
+        echo "MACOS_DEPS=${DEPENDENCIES_MACOS[*]}"
         echo "BUILD_DEPS=${BUILD_DEPENDENCIES[*]}"
+        echo "LINUX_ONLY=${LINUX_ONLY:-false}"
     )
 
     # Parse extracted info
@@ -153,8 +156,34 @@ build_package() {
     pkg_sha256=$(echo "$recipe_info" | grep "^SHA256=" | cut -d= -f2-)
     local pkg_deps
     pkg_deps=$(echo "$recipe_info" | grep "^DEPS=" | cut -d= -f2-)
+    local pkg_linux_deps
+    pkg_linux_deps=$(echo "$recipe_info" | grep "^LINUX_DEPS=" | cut -d= -f2-)
+    local pkg_macos_deps
+    pkg_macos_deps=$(echo "$recipe_info" | grep "^MACOS_DEPS=" | cut -d= -f2-)
     local pkg_build_deps
     pkg_build_deps=$(echo "$recipe_info" | grep "^BUILD_DEPS=" | cut -d= -f2-)
+    local pkg_linux_only
+    pkg_linux_only=$(echo "$recipe_info" | grep "^LINUX_ONLY=" | cut -d= -f2-)
+
+    # Skip Linux-only packages on macOS
+    if [[ "$OS_NAME" == "Darwin" ]] && [[ "$pkg_linux_only" == "true" ]]; then
+        echo -e "${indent}${YELLOW}↺ $package_name (Linux only, skipping on macOS)${NC}"
+        BUILT_PACKAGES[$package_name]=1  # Mark as "built" to avoid re-processing
+        return 0
+    fi
+
+    # Merge platform-specific dependencies
+    if [[ "$OS_NAME" == "Darwin" ]]; then
+        # On macOS, merge DEPENDENCIES_MACOS
+        if [ -n "$pkg_macos_deps" ]; then
+            pkg_deps="$pkg_deps $pkg_macos_deps"
+        fi
+    else
+        # On Linux, merge DEPENDENCIES_LINUX
+        if [ -n "$pkg_linux_deps" ]; then
+            pkg_deps="$pkg_deps $pkg_linux_deps"
+        fi
+    fi
 
     # Store version for this package
     PACKAGE_VERSIONS[$package_name]=$pkg_version

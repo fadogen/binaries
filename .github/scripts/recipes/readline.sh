@@ -32,11 +32,34 @@ build() {
 
     echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
+    # Detect OS
+    local OS_NAME
+    OS_NAME="$(uname)"
+
     # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
     export CPPFLAGS="-I${PREFIX}/include"
-    # Add headerpad for install_name_tool (CRITICAL for relocation)
-    export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+
+    # Platform-specific LDFLAGS
+    case "$OS_NAME" in
+        Darwin)
+            # Add headerpad for install_name_tool (CRITICAL for relocation on macOS)
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            ;;
+        *)
+            export LDFLAGS="-L${PREFIX}/lib"
+            ;;
+    esac
+
+    # Detect number of CPU cores (cross-platform)
+    local NPROC
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
 
     cd "${SOURCE_DIR}"
 
@@ -56,11 +79,18 @@ build() {
             curl -fSL -o "$PATCH_FILE" "$PATCH_URL"
         fi
 
-        # Verify patch checksum
-        echo "$PATCH_SHA256  $PATCH_FILE" | shasum -a 256 -c - || {
-            echo "✗ Patch ${PATCH_NUM} checksum verification failed"
-            return 1
-        }
+        # Verify patch checksum (cross-platform)
+        if command -v sha256sum >/dev/null 2>&1; then
+            echo "$PATCH_SHA256  $PATCH_FILE" | sha256sum -c - || {
+                echo "✗ Patch ${PATCH_NUM} checksum verification failed"
+                return 1
+            }
+        else
+            echo "$PATCH_SHA256  $PATCH_FILE" | shasum -a 256 -c - || {
+                echo "✗ Patch ${PATCH_NUM} checksum verification failed"
+                return 1
+            }
+        fi
 
         # Apply patch (-p0 means strip 0 path components)
         patch -p0 < "$PATCH_FILE"
@@ -73,7 +103,7 @@ build() {
         --with-curses
 
     # Build (with ncurses linking for shared library)
-    make -j"$(sysctl -n hw.ncpu)" SHLIB_LIBS=-lcurses
+    make -j"$NPROC" SHLIB_LIBS=-lcurses
 
     # Install directly to final location
     make install SHLIB_LIBS=-lcurses
