@@ -34,12 +34,17 @@ export DEPENDENCIES_LINUX=(
     "util-linux"
 )
 
-# Build dependencies (installed via Homebrew on macOS, system packages on Linux)
+# Build dependencies (installed via Homebrew)
+# Note: On Linux, uses_from_macos libs are provided by Homebrew/Linuxbrew
 export BUILD_DEPENDENCIES=(
     "docbook"
     "docbook-xsl"
     "pkgconf"
     "gettext"
+    "libxml2"
+    "libxslt"
+    "openldap"
+    "perl"
 )
 
 # Build function
@@ -57,7 +62,7 @@ build() {
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
     export CPPFLAGS="-I${PREFIX}/include"
 
-    # Platform-specific LDFLAGS
+    # Platform-specific LDFLAGS and paths
     case "$OS_NAME" in
         Darwin)
             export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
@@ -67,7 +72,11 @@ build() {
             export CPPFLAGS="-I${PREFIX}/include -I${PREFIX}/include"
             ;;
         *)
-            export LDFLAGS="-L${PREFIX}/lib"
+            # Linux: Include Homebrew/Linuxbrew paths for uses_from_macos libs
+            local HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+            export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/libxml2/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/libxslt/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/openldap/lib/pkgconfig"
+            export LDFLAGS="-L${PREFIX}/lib -L${HOMEBREW_PREFIX}/lib"
+            export CPPFLAGS="-I${PREFIX}/include -I${HOMEBREW_PREFIX}/include"
             ;;
     esac
 
