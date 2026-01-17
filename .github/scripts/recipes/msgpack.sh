@@ -27,30 +27,56 @@ build() {
 
     echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
+    # Detect OS
+    local OS_NAME
+    OS_NAME="$(uname)"
+
+    # Detect number of CPU cores (cross-platform)
+    local NPROC
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
+
     cd "${SOURCE_DIR}"
 
     # Configure with CMake
     cmake -S . -B build \
         -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_FIND_FRAMEWORK=LAST \
         -DMSGPACK_BUILD_TESTS=OFF
 
     # Build
-    cmake --build build -j"$(sysctl -n hw.ncpu)"
+    cmake --build build -j"$NPROC"
 
     # Install
     cmake --install build
 
-    # Create compatibility symlinks (libmsgpackc -> libmsgpack-c)
+    # Create compatibility symlinks (libmsgpack-c -> libmsgpackc)
     # This maintains compatibility with older software expecting libmsgpackc
     cd "${PREFIX}/lib"
-    for dylib in libmsgpack-c*.dylib; do
-        if [ -f "$dylib" ]; then
-            local old_name="${dylib//msgpack-c/msgpackc}"
-            ln -sf "$dylib" "$old_name"
-        fi
-    done
+
+    case "$OS_NAME" in
+        Darwin)
+            for dylib in libmsgpack-c*.dylib; do
+                if [ -f "$dylib" ]; then
+                    local old_name="${dylib//msgpack-c/msgpackc}"
+                    ln -sf "$dylib" "$old_name"
+                fi
+            done
+            ;;
+        *)
+            for solib in libmsgpack-c.so*; do
+                if [ -f "$solib" ]; then
+                    local old_name="${solib//msgpack-c/msgpackc}"
+                    ln -sf "$solib" "$old_name"
+                fi
+            done
+            ;;
+    esac
 
     echo "✓ ${PACKAGE_NAME} built successfully"
 }

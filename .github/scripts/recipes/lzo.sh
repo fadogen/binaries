@@ -15,12 +15,25 @@ export PACKAGE_URL="https://www.oberhumer.com/opensource/${PACKAGE_NAME}/downloa
 # No runtime dependencies
 export DEPENDENCIES=()
 
+# No build dependencies
+export BUILD_DEPENDENCIES=()
+
 # Build function
 build() {
     local PREFIX="$1"
     local SOURCE_DIR="$2"
 
     echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
+
+    # Detect number of CPU cores (cross-platform)
+    local NPROC
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
 
     cd "${SOURCE_DIR}"
 
@@ -31,7 +44,7 @@ build() {
         --enable-shared
 
     # Build
-    make -j"$(sysctl -n hw.ncpu)"
+    make -j"$NPROC"
 
     # Test
     make check

@@ -33,7 +33,7 @@ get_services_for_os() {
     local os="$1"
     case "$os" in
         darwin) echo "mariadb mysql postgresql redis valkey" ;;
-        linux) echo "postgresql redis valkey" ;;
+        linux) echo "mariadb postgresql redis valkey" ;;
         *) echo "" ;;
     esac
 }
@@ -68,7 +68,11 @@ get_supported_versions() {
     local versions=""
     case "$service" in
         "mariadb")
-            versions="10 11 12"
+            if [[ "$os" == "linux" ]]; then
+                versions="12"
+            else
+                versions="10 11 12"
+            fi
             ;;
         "mysql")
             versions="8 9"

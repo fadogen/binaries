@@ -12,7 +12,7 @@ export PACKAGE_SHA256="6eb4f9aa99ee40e86a7753918e40d1745bfa90c5f91984d22fcedb2e9
 # Derived from version
 export PACKAGE_URL="https://archive.mariadb.org/mariadb-${PACKAGE_VERSION}/source/mariadb-${PACKAGE_VERSION}.tar.gz"
 
-# Runtime dependencies
+# Runtime dependencies (common)
 export DEPENDENCIES=(
     "groonga"
     "lz4"
@@ -24,13 +24,23 @@ export DEPENDENCIES=(
     "zstd"
 )
 
+# Linux-specific dependencies
+export DEPENDENCIES_LINUX=(
+    "linux-pam"
+)
+
 # Build dependencies (via Homebrew, not in bundle)
+# Note: openjdk is macOS-only (for JDBC connector)
 export BUILD_DEPENDENCIES=(
     "bison"
     "cmake"
     "fmt"
-    "openjdk"
     "pkgconf"
+)
+
+# macOS-specific build dependencies
+export BUILD_DEPENDENCIES_MACOS=(
+    "openjdk"
 )
 
 # Build function
@@ -40,25 +50,70 @@ build() {
 
     echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
-    # Set PKG_CONFIG_PATH to find our zlib (and other deps)
+    # Detect OS
+    local OS_NAME
+    OS_NAME="$(uname)"
+
+    # Set PKG_CONFIG_PATH to find our dependencies
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
-    # Add headerpad for install_name_tool (CRITICAL for relocation)
-    # Force linker to search bundle libs FIRST before system libs
-    export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
-    # Don't set CPPFLAGS - it pollutes header search order for C++
+
+    # Platform-specific settings
+    local HOMEBREW_OPT
+    case "$OS_NAME" in
+        Darwin)
+            # Add headerpad for install_name_tool (CRITICAL for relocation)
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            if [ -d "/opt/homebrew/opt" ]; then
+                HOMEBREW_OPT="/opt/homebrew/opt"
+            else
+                HOMEBREW_OPT="/usr/local/opt"
+            fi
+            ;;
+        *)
+            # Linux: Include Linuxbrew paths for uses_from_macos libs
+            local HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+            HOMEBREW_OPT="${HOMEBREW_PREFIX}/opt"
+            export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/lib/pkgconfig"
+            export LDFLAGS="-L${PREFIX}/lib -L${HOMEBREW_PREFIX}/lib"
+            export CPPFLAGS="-I${PREFIX}/include -I${HOMEBREW_PREFIX}/include"
+            ;;
+    esac
+
+    # Detect number of CPU cores (cross-platform)
+    local NPROC
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
 
     # Find Homebrew bison (MariaDB requires newer bison than system provides)
-    local BISON_PATH="/opt/homebrew/opt/bison/bin/bison"
+    local BISON_PATH="${HOMEBREW_OPT}/bison/bin/bison"
     if [ ! -f "$BISON_PATH" ]; then
-        BISON_PATH="/usr/local/opt/bison/bin/bison"  # Intel Mac
+        echo "Warning: Homebrew bison not found at $BISON_PATH, using system bison"
+        BISON_PATH="$(command -v bison)"
     fi
+
+    # Find Homebrew fmt location
+    local FMT_DIR="${HOMEBREW_OPT}/fmt"
 
     cd "${SOURCE_DIR}"
 
     # Fix mysql_install_db.sh to use our prefix
     echo "→ Patching mysql_install_db.sh..."
-    sed -i.bak "s|^basedir=.*|basedir=\"${PREFIX}\"|" scripts/mysql_install_db.sh
-    sed -i.bak "s|^ldata=.*|ldata=\"${PREFIX}/data\"|" scripts/mysql_install_db.sh
+    case "$OS_NAME" in
+        Darwin)
+            sed -i.bak "s|^basedir=.*|basedir=\"${PREFIX}\"|" scripts/mysql_install_db.sh
+            sed -i.bak "s|^ldata=.*|ldata=\"${PREFIX}/data\"|" scripts/mysql_install_db.sh
+            rm -f scripts/mysql_install_db.sh.bak
+            ;;
+        *)
+            sed -i "s|^basedir=.*|basedir=\"${PREFIX}\"|" scripts/mysql_install_db.sh
+            sed -i "s|^ldata=.*|ldata=\"${PREFIX}/data\"|" scripts/mysql_install_db.sh
+            ;;
+    esac
 
     # Remove bundled libraries (as per Homebrew formula)
     echo "→ Removing bundled libraries..."
@@ -67,47 +122,66 @@ build() {
     rm -rf zlib
     echo "✓ Bundled libraries cleaned"
 
-    # Find Homebrew fmt location
-    local FMT_DIR="/opt/homebrew/opt/fmt"
-    if [ ! -d "$FMT_DIR" ]; then
-        FMT_DIR="/usr/local/opt/fmt"  # Intel Mac
-    fi
+    # Determine library extension
+    local LIB_EXT
+    case "$OS_NAME" in
+        Darwin) LIB_EXT="dylib" ;;
+        *) LIB_EXT="so" ;;
+    esac
+
+    # CMake args (common)
+    local CMAKE_ARGS=(
+        -DCMAKE_INSTALL_PREFIX="${PREFIX}"
+        -DCMAKE_PREFIX_PATH="${PREFIX}"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_FIND_FRAMEWORK=LAST
+        -DCMAKE_VERBOSE_MAKEFILE=ON
+        -DCOMPILATION_COMMENT=Fadogen
+        -DMYSQL_DATADIR="${PREFIX}/data"
+        -DINSTALL_INCLUDEDIR=include/mysql
+        -DINSTALL_MANDIR=share/man
+        -DINSTALL_DOCDIR=share/doc/mariadb
+        -DINSTALL_INFODIR=share/info
+        -DINSTALL_MYSQLSHAREDIR=share/mysql
+        -DINSTALL_SYSCONFDIR="${PREFIX}/etc"
+        -DBISON_EXECUTABLE="${BISON_PATH}"
+        -DLIBFMT_INCLUDE_DIR="${FMT_DIR}/include"
+        -DPCRE2_INCLUDE_DIR="${PREFIX}/include"
+        -DPCRE2_LIBRARY="${PREFIX}/lib/libpcre2-8.${LIB_EXT}"
+        -DOPENSSL_ROOT_DIR="${PREFIX}"
+        -DZLIB_INCLUDE_DIR="${PREFIX}/include"
+        -DZLIB_LIBRARY="${PREFIX}/lib/libz.${LIB_EXT}"
+        -DPLUGIN_PROVIDER_SNAPPY=NO
+        -DWITH_ROCKSDB_Snappy=OFF
+        -DWITH_LIBFMT=system
+        -DWITH_PCRE=system
+        -DWITH_SSL=system
+        -DWITH_ZLIB=system
+        -DWITH_UNIT_TESTS=OFF
+        -DDEFAULT_CHARSET=utf8mb4
+        -DDEFAULT_COLLATION=utf8mb4_general_ci
+    )
+
+    # Platform-specific CMake args
+    case "$OS_NAME" in
+        Darwin)
+            # macOS: nothing extra needed
+            ;;
+        *)
+            # Linux-specific args (from Homebrew formula)
+            CMAKE_ARGS+=(
+                -DWITH_NUMA=OFF
+                -DENABLE_DTRACE=NO
+                -DCONNECT_WITH_JDBC=OFF
+            )
+            ;;
+    esac
 
     # Configure with CMake
-    # -DINSTALL_* are relative to CMAKE_INSTALL_PREFIX
-    cmake -S . -B build \
-        -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
-        -DCMAKE_PREFIX_PATH="${PREFIX}" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_FIND_FRAMEWORK=LAST \
-        -DCMAKE_VERBOSE_MAKEFILE=ON \
-        -DCOMPILATION_COMMENT=Fadogen \
-        -DMYSQL_DATADIR="${PREFIX}/data" \
-        -DINSTALL_INCLUDEDIR=include/mysql \
-        -DINSTALL_MANDIR=share/man \
-        -DINSTALL_DOCDIR=share/doc/mariadb \
-        -DINSTALL_INFODIR=share/info \
-        -DINSTALL_MYSQLSHAREDIR=share/mysql \
-        -DINSTALL_SYSCONFDIR="${PREFIX}/etc" \
-        -DBISON_EXECUTABLE="${BISON_PATH}" \
-        -DLIBFMT_INCLUDE_DIR="${FMT_DIR}/include" \
-        -DPCRE2_INCLUDE_DIR="${PREFIX}/include" \
-        -DPCRE2_LIBRARY="${PREFIX}/lib/libpcre2-8.dylib" \
-        -DOPENSSL_ROOT_DIR="${PREFIX}" \
-        -DZLIB_INCLUDE_DIR="${PREFIX}/include" \
-        -DZLIB_LIBRARY="${PREFIX}/lib/libz.dylib" \
-        -DPLUGIN_PROVIDER_SNAPPY=NO \
-        -DWITH_ROCKSDB_Snappy=OFF \
-        -DWITH_LIBFMT=system \
-        -DWITH_PCRE=system \
-        -DWITH_SSL=system \
-        -DWITH_ZLIB=system \
-        -DWITH_UNIT_TESTS=OFF \
-        -DDEFAULT_CHARSET=utf8mb4 \
-        -DDEFAULT_COLLATION=utf8mb4_general_ci
+    cmake -S . -B build "${CMAKE_ARGS[@]}"
 
     # Build
-    cmake --build build -j"$(sysctl -n hw.ncpu)"
+    cmake --build build -j"$NPROC"
 
     # Install directly to final location
     cmake --install build
@@ -122,12 +196,18 @@ build() {
 
     # Fix mysql.server script PATH
     if [ -f "${PREFIX}/support-files/mysql.server" ]; then
-        sed -i.bak 's|^PATH="\(.*\)"|PATH="\1:'"${PREFIX}"'/bin"|' "${PREFIX}/support-files/mysql.server"
-        rm -f "${PREFIX}/support-files/mysql.server.bak"
-
-        # Fix user variable (as per Homebrew formula)
-        sed -i.bak "s|^user='mysql'|user=\$(whoami)|" "${PREFIX}/support-files/mysql.server"
-        rm -f "${PREFIX}/support-files/mysql.server.bak"
+        case "$OS_NAME" in
+            Darwin)
+                sed -i.bak 's|^PATH="\(.*\)"|PATH="\1:'"${PREFIX}"'/bin"|' "${PREFIX}/support-files/mysql.server"
+                rm -f "${PREFIX}/support-files/mysql.server.bak"
+                sed -i.bak "s|^user='mysql'|user=\$(whoami)|" "${PREFIX}/support-files/mysql.server"
+                rm -f "${PREFIX}/support-files/mysql.server.bak"
+                ;;
+            *)
+                sed -i 's|^PATH="\(.*\)"|PATH="\1:'"${PREFIX}"'/bin"|' "${PREFIX}/support-files/mysql.server"
+                sed -i "s|^user='mysql'|user=\$(whoami)|" "${PREFIX}/support-files/mysql.server"
+                ;;
+        esac
 
         # Install symlink
         ln -sf "${PREFIX}/support-files/mysql.server" "${PREFIX}/bin/mysql.server"
@@ -141,8 +221,15 @@ build() {
         # Fix references in wsrep scripts
         for script in wsrep_sst_mysqldump wsrep_sst_rsync wsrep_sst_mariabackup; do
             if [ -f "${PREFIX}/bin/${script}" ]; then
-                sed -i.bak "s|^\\(.*\\)\$(dirname \"\$0\")/wsrep_sst_common|\\1${PREFIX}/libexec/wsrep_sst_common|" "${PREFIX}/bin/${script}"
-                rm -f "${PREFIX}/bin/${script}.bak"
+                case "$OS_NAME" in
+                    Darwin)
+                        sed -i.bak "s|\$(dirname \"\$0\")/wsrep_sst_common|${PREFIX}/libexec/wsrep_sst_common|" "${PREFIX}/bin/${script}"
+                        rm -f "${PREFIX}/bin/${script}.bak"
+                        ;;
+                    *)
+                        sed -i "s|\$(dirname \"\$0\")/wsrep_sst_common|${PREFIX}/libexec/wsrep_sst_common|" "${PREFIX}/bin/${script}"
+                        ;;
+                esac
             fi
         done
     fi
@@ -158,10 +245,6 @@ EOF
 
     # Fix my.cnf to point to our PREFIX etc instead of /etc (as per Homebrew formula)
     mkdir -p "${PREFIX}/etc/my.cnf.d"
-    if [ -f "${PREFIX}/etc/my.cnf" ]; then
-        sed -i.bak "s|!includedir /etc/my.cnf.d|!includedir ${PREFIX}/etc/my.cnf.d|" "${PREFIX}/etc/my.cnf"
-        rm -f "${PREFIX}/etc/my.cnf.bak"
-    fi
     touch "${PREFIX}/etc/my.cnf.d/.homebrew_dont_prune_me"
 
     echo "✓ ${PACKAGE_NAME} built successfully"

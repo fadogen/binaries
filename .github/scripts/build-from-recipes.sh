@@ -149,6 +149,8 @@ build_package() {
         echo "LINUX_DEPS=${DEPENDENCIES_LINUX[*]}"
         echo "MACOS_DEPS=${DEPENDENCIES_MACOS[*]}"
         echo "BUILD_DEPS=${BUILD_DEPENDENCIES[*]}"
+        echo "BUILD_LINUX_DEPS=${BUILD_DEPENDENCIES_LINUX[*]}"
+        echo "BUILD_MACOS_DEPS=${BUILD_DEPENDENCIES_MACOS[*]}"
         echo "LINUX_ONLY=${LINUX_ONLY:-false}"
     )
 
@@ -167,6 +169,10 @@ build_package() {
     pkg_macos_deps=$(echo "$recipe_info" | grep "^MACOS_DEPS=" | cut -d= -f2-)
     local pkg_build_deps
     pkg_build_deps=$(echo "$recipe_info" | grep "^BUILD_DEPS=" | cut -d= -f2-)
+    local pkg_build_linux_deps
+    pkg_build_linux_deps=$(echo "$recipe_info" | grep "^BUILD_LINUX_DEPS=" | cut -d= -f2-)
+    local pkg_build_macos_deps
+    pkg_build_macos_deps=$(echo "$recipe_info" | grep "^BUILD_MACOS_DEPS=" | cut -d= -f2-)
     local pkg_linux_only
     pkg_linux_only=$(echo "$recipe_info" | grep "^LINUX_ONLY=" | cut -d= -f2-)
 
@@ -183,10 +189,18 @@ build_package() {
         if [ -n "$pkg_macos_deps" ]; then
             pkg_deps="$pkg_deps $pkg_macos_deps"
         fi
+        # On macOS, merge BUILD_DEPENDENCIES_MACOS
+        if [ -n "$pkg_build_macos_deps" ]; then
+            pkg_build_deps="$pkg_build_deps $pkg_build_macos_deps"
+        fi
     else
         # On Linux, merge DEPENDENCIES_LINUX
         if [ -n "$pkg_linux_deps" ]; then
             pkg_deps="$pkg_deps $pkg_linux_deps"
+        fi
+        # On Linux, merge BUILD_DEPENDENCIES_LINUX
+        if [ -n "$pkg_build_linux_deps" ]; then
+            pkg_build_deps="$pkg_build_deps $pkg_build_linux_deps"
         fi
     fi
 

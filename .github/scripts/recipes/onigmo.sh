@@ -1,18 +1,18 @@
 #!/bin/bash
-# Build recipe for pcre2
-# Description: Perl compatible regular expressions library with a new API
+# Build recipe for onigmo
+# Description: Regular expressions library forked from Oniguruma
 
 set -e
 
 # Metadata
-export PACKAGE_NAME="pcre2"
-export PACKAGE_VERSION="10.47"
-export PACKAGE_SHA256="47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7"
+export PACKAGE_NAME="onigmo"
+export PACKAGE_VERSION="6.2.0"
+export PACKAGE_SHA256="c648496b5339953b925ebf44b8de356feda8d3428fa07dc1db95bfe2570feb76"
 
 # Derived from version
-export PACKAGE_URL="https://github.com/PCRE2Project/${PACKAGE_NAME}/releases/download/${PACKAGE_NAME}-${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.bz2"
+export PACKAGE_URL="https://github.com/k-takata/Onigmo/releases/download/Onigmo-${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 
-# No runtime dependencies (uses_from_macos: bzip2, zlib)
+# No runtime dependencies
 export DEPENDENCIES=()
 
 # No build dependencies
@@ -51,24 +51,10 @@ build() {
 
     cd "${SOURCE_DIR}"
 
-    # Configure args (common)
-    local CONFIGURE_ARGS=(
-        --prefix="${PREFIX}"
-        --disable-dependency-tracking
-        --enable-pcre2-16
-        --enable-pcre2-32
-        --enable-pcre2grep-libz
-        --enable-pcre2grep-libbz2
-        --enable-jit
-    )
-
-    # macOS only: enable libedit support for pcre2test
-    if [ "$OS_NAME" = "Darwin" ]; then
-        CONFIGURE_ARGS+=(--enable-pcre2test-libedit)
-    fi
-
     # Configure
-    ./configure "${CONFIGURE_ARGS[@]}"
+    ./configure \
+        --prefix="${PREFIX}" \
+        --disable-dependency-tracking
 
     # Build
     make -j"$NPROC"

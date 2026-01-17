@@ -15,6 +15,9 @@ export PACKAGE_URL="https://deb.debian.org/debian/pool/main/m/${PACKAGE_NAME}/${
 # No runtime dependencies
 export DEPENDENCIES=()
 
+# No build dependencies
+export BUILD_DEPENDENCIES=()
+
 # Build function
 build() {
     local PREFIX="$1"
@@ -22,31 +25,72 @@ build() {
 
     echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
+    # Detect OS
+    local OS_NAME
+    OS_NAME="$(uname)"
+
+    # Platform-specific LDFLAGS
+    case "$OS_NAME" in
+        Darwin)
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            ;;
+        *)
+            export LDFLAGS="-L${PREFIX}/lib"
+            ;;
+    esac
+
+    # Detect number of CPU cores (cross-platform)
+    local NPROC
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
+
     cd "${SOURCE_DIR}"
 
-    # Configure
-    ./configure \
-        --disable-dependency-tracking \
-        --prefix="${PREFIX}" \
+    # Configure args
+    local CONFIGURE_ARGS=(
+        --prefix="${PREFIX}"
         --sysconfdir="${PREFIX}/etc"
+        --disable-dependency-tracking
+    )
+
+    # Help old config scripts identify arm64 linux
+    if [ "$OS_NAME" = "Linux" ]; then
+        local ARCH
+        ARCH="$(uname -m)"
+        if [ "$ARCH" = "aarch64" ]; then
+            CONFIGURE_ARGS+=(--build=aarch64-unknown-linux-gnu)
+        fi
+    fi
+
+    # Configure
+    ./configure "${CONFIGURE_ARGS[@]}"
 
     # Build
-    make -j"$(sysctl -n hw.ncpu)"
+    make -j"$NPROC"
 
     # Install
     make install
 
-    # Fix dictionary paths to use our PREFIX instead of HOMEBREW_PREFIX
+    # Fix dictionary paths to use our PREFIX
     # mecab-config
     if [ -f "${PREFIX}/bin/mecab-config" ]; then
-        sed -i.bak "s|${PREFIX}/lib/mecab/dic|${PREFIX}/lib/mecab/dic|g" "${PREFIX}/bin/mecab-config"
-        rm -f "${PREFIX}/bin/mecab-config.bak"
+        case "$OS_NAME" in
+            Darwin) sed -i '' "s|${PREFIX}/lib/mecab/dic|${PREFIX}/lib/mecab/dic|g" "${PREFIX}/bin/mecab-config" ;;
+            *) sed -i "s|${PREFIX}/lib/mecab/dic|${PREFIX}/lib/mecab/dic|g" "${PREFIX}/bin/mecab-config" ;;
+        esac
     fi
 
     # mecabrc
     if [ -f "${PREFIX}/etc/mecabrc" ]; then
-        sed -i.bak "s|${PREFIX}/lib/mecab/dic|${PREFIX}/lib/mecab/dic|g" "${PREFIX}/etc/mecabrc"
-        rm -f "${PREFIX}/etc/mecabrc.bak"
+        case "$OS_NAME" in
+            Darwin) sed -i '' "s|${PREFIX}/lib/mecab/dic|${PREFIX}/lib/mecab/dic|g" "${PREFIX}/etc/mecabrc" ;;
+            *) sed -i "s|${PREFIX}/lib/mecab/dic|${PREFIX}/lib/mecab/dic|g" "${PREFIX}/etc/mecabrc" ;;
+        esac
     fi
 
     # Create dic directory
