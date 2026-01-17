@@ -74,12 +74,8 @@ get_supported_versions() {
             versions="8 9"
             ;;
         "postgresql")
-            # Sur Linux, seule la version 18 est supportée pour le moment
-            if [[ "$os" == "linux" ]]; then
-                versions="18"
-            else
-                versions="14 15 16 17 18"
-            fi
+            # Toutes les versions supportées sur les deux plateformes
+            versions="14 15 16 17 18"
             ;;
         "redis")
             versions="8"
