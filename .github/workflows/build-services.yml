@@ -5,6 +5,21 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild services (space-separated, e.g. "mariadb" or "mariadb@12 postgresql@18")'
+        required: false
+        default: ''
+        type: string
+      filter_os:
+        description: 'Filter by OS (leave empty for all)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - 'darwin'
+          - 'linux'
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -42,6 +57,9 @@ jobs:
 
       - name: "Check versions and generate build matrix"
         id: check
+        env:
+          FORCE_REBUILD_SERVICES: ${{ github.event.inputs.force_rebuild }}
+          FILTER_OS: ${{ github.event.inputs.filter_os }}
         run: |
           .github/scripts/services-metadata-manager.sh check-versions
 

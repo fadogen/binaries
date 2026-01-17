@@ -91,6 +91,11 @@ get_version_from_recipe() {
 check_versions() {
     log_info "Checking service versions..."
 
+    # Log force rebuild services if set
+    if [[ -n "${FORCE_REBUILD_SERVICES:-}" ]]; then
+        log_info "Force rebuild requested for: $FORCE_REBUILD_SERVICES"
+    fi
+
     # Load metadata for each OS/architecture combination
     declare -A metadata_by_os_arch
     for os in $SUPPORTED_OS; do
@@ -179,9 +184,23 @@ check_versions() {
                     local metadata_latest
                     metadata_latest=$(echo "$metadata" | jq -r ".\"$service\".\"$major\".latest // \"\"")
 
-                    # Compare versions
-                    if [[ "$recipe_version" != "$metadata_latest" ]]; then
-                        if [[ -z "$metadata_latest" ]]; then
+                    # Check if force rebuild is requested for this service
+                    local force_rebuild=false
+                    if [[ -n "${FORCE_REBUILD_SERVICES:-}" ]]; then
+                        for force_svc in $FORCE_REBUILD_SERVICES; do
+                            # Match "service" or "service@major"
+                            if [[ "$force_svc" == "$service" || "$force_svc" == "${service}@${major}" ]]; then
+                                force_rebuild=true
+                                break
+                            fi
+                        done
+                    fi
+
+                    # Compare versions (or force rebuild)
+                    if [[ "$recipe_version" != "$metadata_latest" || "$force_rebuild" == "true" ]]; then
+                        if [[ "$force_rebuild" == "true" ]]; then
+                            log_info "Force: ${service} ${major} ${os}/${arch} -> ${recipe_version}"
+                        elif [[ -z "$metadata_latest" ]]; then
                             log_info "New: ${service} ${major} ${os}/${arch} -> ${recipe_version}"
                         else
                             log_info "Update: ${service} ${major} ${os}/${arch} -> ${recipe_version} (was: ${metadata_latest})"

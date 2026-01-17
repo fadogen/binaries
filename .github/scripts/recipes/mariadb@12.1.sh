@@ -26,6 +26,7 @@ export DEPENDENCIES=(
 
 # Linux-specific dependencies
 export DEPENDENCIES_LINUX=(
+    "libedit"
     "linux-pam"
 )
 
