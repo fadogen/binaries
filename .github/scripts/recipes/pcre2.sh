@@ -15,8 +15,10 @@ export PACKAGE_URL="https://github.com/PCRE2Project/${PACKAGE_NAME}/releases/dow
 # No runtime dependencies (uses_from_macos: bzip2, zlib)
 export DEPENDENCIES=()
 
-# No build dependencies
-export BUILD_DEPENDENCIES=()
+# Build dependencies (uses_from_macos on macOS, Linuxbrew on Linux)
+export BUILD_DEPENDENCIES=(
+    "bzip2"
+)
 
 # Build function
 build() {
@@ -29,13 +31,17 @@ build() {
     local OS_NAME
     OS_NAME="$(uname)"
 
-    # Platform-specific LDFLAGS
+    # Platform-specific flags
     case "$OS_NAME" in
         Darwin)
             export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            export CPPFLAGS="-I${PREFIX}/include"
             ;;
         *)
-            export LDFLAGS="-L${PREFIX}/lib"
+            # Linux: Include Linuxbrew paths for uses_from_macos libs (bzip2)
+            local HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+            export LDFLAGS="-L${PREFIX}/lib -L${HOMEBREW_PREFIX}/lib"
+            export CPPFLAGS="-I${PREFIX}/include -I${HOMEBREW_PREFIX}/include"
             ;;
     esac
 
