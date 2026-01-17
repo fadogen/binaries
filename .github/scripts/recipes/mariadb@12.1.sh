@@ -177,6 +177,11 @@ build() {
                 -DWITH_NUMA=OFF
                 -DENABLE_DTRACE=NO
                 -DCONNECT_WITH_JDBC=OFF
+                # RPATH so linker finds shared libs during build and at runtime
+                -DCMAKE_BUILD_RPATH="${PREFIX}/lib"
+                -DCMAKE_INSTALL_RPATH="${PREFIX}/lib"
+                -DCMAKE_EXE_LINKER_FLAGS="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
+                -DCMAKE_SHARED_LINKER_FLAGS="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
             )
             ;;
     esac

@@ -94,6 +94,19 @@ build() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_SYSCONFDIR="${PREFIX}/etc"
         -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+    )
+
+    # Linux: Add RPATH so linker finds shared libs during build and at runtime
+    if [[ "$OS_NAME" != "Darwin" ]]; then
+        CMAKE_ARGS+=(
+            -DCMAKE_BUILD_RPATH="${PREFIX}/lib"
+            -DCMAKE_INSTALL_RPATH="${PREFIX}/lib"
+            -DCMAKE_EXE_LINKER_FLAGS="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
+            -DCMAKE_SHARED_LINKER_FLAGS="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
+        )
+    fi
+
+    CMAKE_ARGS+=(
         -DGRN_WITH_BASE64=no
         -DGRN_WITH_BUNDLED_ONIGMO=OFF
         -DGRN_WITH_CURL=no
@@ -141,10 +154,23 @@ build() {
     export PATH="${PREFIX}/bin:${PATH}"
 
     # Configure normalizer with CMake
-    cmake -S . -B _build \
-        -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
-        -DCMAKE_PREFIX_PATH="${PREFIX}" \
+    local NORMALIZER_CMAKE_ARGS=(
+        -DCMAKE_INSTALL_PREFIX="${PREFIX}"
+        -DCMAKE_PREFIX_PATH="${PREFIX}"
         -DCMAKE_BUILD_TYPE=Release
+    )
+
+    # Linux: Add RPATH for normalizer too
+    if [[ "$OS_NAME" != "Darwin" ]]; then
+        NORMALIZER_CMAKE_ARGS+=(
+            -DCMAKE_BUILD_RPATH="${PREFIX}/lib"
+            -DCMAKE_INSTALL_RPATH="${PREFIX}/lib"
+            -DCMAKE_EXE_LINKER_FLAGS="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
+            -DCMAKE_SHARED_LINKER_FLAGS="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
+        )
+    fi
+
+    cmake -S . -B _build "${NORMALIZER_CMAKE_ARGS[@]}"
 
     # Build and install normalizer
     cmake --build _build -j"$NPROC"
