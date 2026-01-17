@@ -33,8 +33,12 @@ export DEPENDENCIES_LINUX=(
 
 # Build dependencies
 export BUILD_DEPENDENCIES=(
-    "pkgconf"
+    "autoconf"
+    "automake"
     "gettext"
+    "gtk-doc"
+    "libtool"
+    "pkgconf"
 )
 
 # Patch URL and checksum
