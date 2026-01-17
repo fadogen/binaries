@@ -41,6 +41,11 @@ fi
 # Detect OS
 OS_NAME="$(uname)"
 
+# Setup Homebrew on Linux (not in PATH by default on GitHub Actions runners)
+if [[ "$OS_NAME" != "Darwin" ]] && [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi
+
 # Final installation prefix (Fadogen style - varies by OS)
 if [[ "$OS_NAME" == "Darwin" ]]; then
     FADOGEN_BASE="/Users/Shared/Fadogen"
