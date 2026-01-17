@@ -19,8 +19,10 @@ export DEPENDENCIES=(
     "libxcrypt"
 )
 
-# Build dependencies (meson/ninja installed via system package manager)
+# Build dependencies
 export BUILD_DEPENDENCIES=(
+    "meson"
+    "ninja"
     "pkgconf"
 )
 
