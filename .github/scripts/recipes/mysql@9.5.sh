@@ -31,9 +31,11 @@ export DEPENDENCIES_LINUX=(
 )
 
 # Build dependencies (via Homebrew, not in bundle)
+# Note: On Linux, uses_from_macos libs (curl) are provided by Homebrew/Linuxbrew
 export BUILD_DEPENDENCIES=(
     "bison"
     "cmake"
+    "curl"
     "pkgconf"
 )
 
@@ -180,10 +182,11 @@ build() {
             )
             ;;
         *)
-            # Linux: libedit is built as a dependency (DEPENDENCIES_LINUX)
+            # Linux: libedit and curl are provided by Linuxbrew (BUILD_DEPENDENCIES)
             # Set RPATH so binaries can find shared libs at runtime
             CMAKE_ARGS+=(
                 -DWITH_EDITLINE=system
+                -DWITH_CURL=system
                 -DCMAKE_BUILD_RPATH="${PREFIX}/lib"
                 -DCMAKE_INSTALL_RPATH="${PREFIX}/lib"
                 -DCMAKE_EXE_LINKER_FLAGS="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
