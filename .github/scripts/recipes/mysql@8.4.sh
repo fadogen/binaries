@@ -26,6 +26,7 @@ export DEPENDENCIES=(
 
 # Linux-specific dependencies
 export DEPENDENCIES_LINUX=(
+    "libedit"
     "libtirpc"
 )
 
@@ -159,7 +160,6 @@ build() {
         -DOPENSSL_ROOT_DIR="${PREFIX}"
         -DWITH_ICU="${PREFIX}"
         -DWITH_SYSTEM_LIBS=ON
-        -DWITH_EDITLINE=system
         -DWITH_LZ4=system
         -DWITH_PROTOBUF=system
         -DWITH_SSL=system
@@ -171,11 +171,16 @@ build() {
     # Platform-specific CMake args
     case "$OS_NAME" in
         Darwin)
-            # macOS: nothing extra needed (relocation handled by relocate.sh)
+            # macOS: libedit is provided by the system
+            CMAKE_ARGS+=(
+                -DWITH_EDITLINE=system
+            )
             ;;
         *)
-            # Linux: Set RPATH so binaries can find shared libs at runtime
+            # Linux: libedit is built as a dependency (DEPENDENCIES_LINUX)
+            # Set RPATH so binaries can find shared libs at runtime
             CMAKE_ARGS+=(
+                -DWITH_EDITLINE=system
                 -DCMAKE_BUILD_RPATH="${PREFIX}/lib"
                 -DCMAKE_INSTALL_RPATH="${PREFIX}/lib"
                 -DCMAKE_EXE_LINKER_FLAGS="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
