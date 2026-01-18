@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="abseil"
-export PACKAGE_VERSION="20250814.1"
-export PACKAGE_SHA256="1692f77d1739bacf3f94337188b78583cf09bab7e420d2dc6c5605a4f86785a1"
+export PACKAGE_VERSION="20260107.0"
+export PACKAGE_SHA256="4c124408da902be896a2f368042729655709db5e3004ec99f57e3e14439bc1b2"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/abseil/abseil-cpp/archive/refs/tags/${PACKAGE_VERSION}.tar.gz"
@@ -28,28 +28,69 @@ build() {
 
     echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
+    # Detect OS
+    local OS_NAME
+    OS_NAME="$(uname)"
+
     # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
     export CPPFLAGS="-I${PREFIX}/include"
-    # Add headerpad for install_name_tool (CRITICAL for relocation)
-    export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+
+    # Platform-specific LDFLAGS
+    case "$OS_NAME" in
+        Darwin)
+            # Add headerpad for install_name_tool (CRITICAL for relocation on macOS)
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            ;;
+        *)
+            export LDFLAGS="-L${PREFIX}/lib"
+            ;;
+    esac
+
+    # Detect number of CPU cores (cross-platform)
+    local NPROC
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
 
     cd "${SOURCE_DIR}"
 
-    # Configure with CMake
-    cmake -S . -B build \
-        -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_CXX_STANDARD=17 \
-        -DBUILD_SHARED_LIBS=ON \
-        -DABSL_PROPAGATE_CXX_STD=ON \
-        -DABSL_ENABLE_INSTALL=ON \
-        -DABSL_BUILD_TEST_HELPERS=ON \
-        -DABSL_USE_EXTERNAL_GOOGLETEST=ON \
+    # CMake args (common)
+    local CMAKE_ARGS=(
+        -DCMAKE_INSTALL_PREFIX="${PREFIX}"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_CXX_STANDARD=17
+        -DBUILD_SHARED_LIBS=ON
+        -DABSL_PROPAGATE_CXX_STD=ON
+        -DABSL_ENABLE_INSTALL=ON
+        -DABSL_BUILD_TEST_HELPERS=ON
+        -DABSL_USE_EXTERNAL_GOOGLETEST=ON
         -DABSL_FIND_GOOGLETEST=ON
+    )
+
+    # Platform-specific CMake args
+    case "$OS_NAME" in
+        Darwin)
+            # macOS: nothing extra needed (relocation handled by relocate.sh)
+            ;;
+        *)
+            # Linux: Set RPATH so libraries can find each other at runtime
+            CMAKE_ARGS+=(
+                -DCMAKE_BUILD_RPATH="${PREFIX}/lib"
+                -DCMAKE_INSTALL_RPATH="${PREFIX}/lib"
+            )
+            ;;
+    esac
+
+    # Configure with CMake
+    cmake -S . -B build "${CMAKE_ARGS[@]}"
 
     # Build
-    cmake --build build -j"$(sysctl -n hw.ncpu)"
+    cmake --build build -j"$NPROC"
 
     # Install directly to final location
     cmake --install build

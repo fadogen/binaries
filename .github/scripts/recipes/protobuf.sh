@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="protobuf"
-export PACKAGE_VERSION="33.2"
-export PACKAGE_SHA256="6b6599b54c88d75904b7471f5ca34a725fa0af92e134dd1a32d5b395aa4b4ca8"
+export PACKAGE_VERSION="33.4"
+export PACKAGE_SHA256="bc670a4e34992c175137ddda24e76562bb928f849d712a0e3c2fb2e19249bea1"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/protocolbuffers/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
@@ -30,31 +30,72 @@ build() {
 
     echo "Building ${PACKAGE_NAME} ${PACKAGE_VERSION}..."
 
+    # Detect OS
+    local OS_NAME
+    OS_NAME="$(uname)"
+
     # Dependencies are installed in $PREFIX (parent_prefix logic)
     export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig"
     export CPPFLAGS="-I${PREFIX}/include"
-    # Add headerpad for install_name_tool (CRITICAL for relocation)
-    export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+
+    # Platform-specific LDFLAGS
+    case "$OS_NAME" in
+        Darwin)
+            # Add headerpad for install_name_tool (CRITICAL for relocation on macOS)
+            export LDFLAGS="-L${PREFIX}/lib -Wl,-headerpad_max_install_names"
+            ;;
+        *)
+            export LDFLAGS="-L${PREFIX}/lib"
+            ;;
+    esac
+
+    # Detect number of CPU cores (cross-platform)
+    local NPROC
+    if command -v nproc >/dev/null 2>&1; then
+        NPROC=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        NPROC=$(sysctl -n hw.ncpu)
+    else
+        NPROC=4
+    fi
 
     cd "${SOURCE_DIR}"
 
-    # Configure with CMake (keep CMAKE_CXX_STANDARD in sync with abseil.rb)
-    cmake -S . -B build \
-        -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
-        -DCMAKE_PREFIX_PATH="${PREFIX}" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_CXX_STANDARD=17 \
-        -DBUILD_SHARED_LIBS=ON \
-        -Dprotobuf_BUILD_LIBPROTOC=ON \
-        -Dprotobuf_BUILD_SHARED_LIBS=ON \
-        -Dprotobuf_INSTALL_EXAMPLES=ON \
-        -Dprotobuf_BUILD_TESTS=ON \
-        -Dprotobuf_USE_EXTERNAL_GTEST=ON \
-        -Dprotobuf_FORCE_FETCH_DEPENDENCIES=OFF \
+    # CMake args (common) - keep CMAKE_CXX_STANDARD in sync with abseil
+    local CMAKE_ARGS=(
+        -DCMAKE_INSTALL_PREFIX="${PREFIX}"
+        -DCMAKE_PREFIX_PATH="${PREFIX}"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_CXX_STANDARD=17
+        -DBUILD_SHARED_LIBS=ON
+        -Dprotobuf_BUILD_LIBPROTOC=ON
+        -Dprotobuf_BUILD_SHARED_LIBS=ON
+        -Dprotobuf_INSTALL_EXAMPLES=ON
+        -Dprotobuf_BUILD_TESTS=ON
+        -Dprotobuf_USE_EXTERNAL_GTEST=ON
+        -Dprotobuf_FORCE_FETCH_DEPENDENCIES=OFF
         -Dprotobuf_LOCAL_DEPENDENCIES_ONLY=ON
+    )
+
+    # Platform-specific CMake args
+    case "$OS_NAME" in
+        Darwin)
+            # macOS: nothing extra needed (relocation handled by relocate.sh)
+            ;;
+        *)
+            # Linux: Set RPATH so libraries can find each other at runtime
+            CMAKE_ARGS+=(
+                -DCMAKE_BUILD_RPATH="${PREFIX}/lib"
+                -DCMAKE_INSTALL_RPATH="${PREFIX}/lib"
+            )
+            ;;
+    esac
+
+    # Configure with CMake
+    cmake -S . -B build "${CMAKE_ARGS[@]}"
 
     # Build
-    cmake --build build -j"$(sysctl -n hw.ncpu)"
+    cmake --build build -j"$NPROC"
 
     # Run tests (as per Homebrew formula)
     echo "→ Running tests..."
