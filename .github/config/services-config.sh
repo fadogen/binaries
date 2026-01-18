@@ -33,7 +33,7 @@ get_services_for_os() {
     local os="$1"
     case "$os" in
         darwin) echo "mariadb mysql postgresql redis valkey" ;;
-        linux) echo "mariadb postgresql redis valkey" ;;
+        linux) echo "mariadb mysql postgresql redis valkey" ;;
         *) echo "" ;;
     esac
 }
