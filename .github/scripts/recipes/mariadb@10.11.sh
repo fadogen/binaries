@@ -155,7 +155,6 @@ build() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_FIND_FRAMEWORK=LAST
         -DCMAKE_VERBOSE_MAKEFILE=ON
-        -DCOMPILATION_COMMENT=Fadogen
         -DMYSQL_DATADIR="${PREFIX}/data"
         -DINSTALL_INCLUDEDIR=include/mysql
         -DINSTALL_MANDIR=share/man

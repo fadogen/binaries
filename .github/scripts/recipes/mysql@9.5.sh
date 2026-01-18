@@ -152,7 +152,6 @@ build() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_FIND_FRAMEWORK=LAST
         -DCMAKE_VERBOSE_MAKEFILE=ON
-        -DCOMPILATION_COMMENT=Fadogen
         -DINSTALL_DOCDIR=share/doc/mysql
         -DINSTALL_INCLUDEDIR=include/mysql
         -DINSTALL_INFODIR=share/info
@@ -223,7 +222,7 @@ build() {
     # Install my.cnf that binds to 127.0.0.1 by default (as per Homebrew formula)
     mkdir -p "${PREFIX}/etc"
     cat > "${PREFIX}/etc/my.cnf" <<'EOF'
-# Default Fadogen MySQL server config
+# Default MySQL server config
 [mysqld]
 # Only allow connections from localhost
 bind-address = 127.0.0.1
