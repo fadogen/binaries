@@ -315,13 +315,17 @@ def create_windows_archive(php_version, full_version):
         with zipfile.ZipFile(php_zip_path, 'r') as zf:
             zf.extractall(extract_dir)
 
-        # Find the extracted PHP directory
-        php_source_dirs = [d for d in extract_dir.iterdir() if d.is_dir()]
-        if not php_source_dirs:
-            # Files might be directly in extract_dir
+        # Find where php.exe is located
+        # windows.php.net archives have files at root, not in a subdirectory
+        if (extract_dir / 'php.exe').exists():
             php_source = extract_dir
         else:
-            php_source = php_source_dirs[0]
+            # Fallback: check if there's a subdirectory with php.exe
+            php_source_dirs = [d for d in extract_dir.iterdir() if d.is_dir() and (d / 'php.exe').exists()]
+            if php_source_dirs:
+                php_source = php_source_dirs[0]
+            else:
+                raise RuntimeError(f"Cannot find php.exe in extracted archive: {extract_dir}")
 
         # Create output structure: php-{version}/
         output_dir = work_dir / f'php-{full_version}'
