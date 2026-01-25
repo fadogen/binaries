@@ -212,33 +212,37 @@ def check_versions():
             eol_versions.append(major_minor)
             print(f"EOL version detected: {major_minor}")
 
-    # Windows matrix generation
+    # Windows matrix generation - use versions from windows.php.net, not php.net
     windows_matrix = []
-    for full_version, version_details in version_details_cache.items():
-        major_minor = get_major_minor(full_version)
-        api_release = version_details.get('date', '')
-
+    for major_minor in supported_versions:
         # Check if version is available on windows.php.net
-        if windows_releases and major_minor not in windows_releases:
+        if not windows_releases or major_minor not in windows_releases:
             print(f"PHP {major_minor} not available on Windows, skipping")
             continue
 
+        # Get version info from windows.php.net releases.json
+        win_version_info = windows_releases[major_minor]
+        full_version = win_version_info.get('version')
+        if not full_version:
+            print(f"PHP {major_minor} has no version in Windows releases, skipping")
+            continue
+
+        # Windows releases.json doesn't have release dates, so we use the version as key
         need_build = False
         if major_minor not in windows_metadata:
             need_build = True
             print(f"New Windows version detected: {full_version}")
         else:
-            metadata_release = windows_metadata[major_minor].get('releaseDate', '')
-            if api_release != metadata_release:
+            metadata_version = windows_metadata[major_minor].get('latest', '')
+            if full_version != metadata_version:
                 need_build = True
-                print(f"Updated Windows version detected: {full_version}")
+                print(f"Updated Windows version detected: {full_version} (was {metadata_version})")
 
         if need_build:
             windows_matrix.append({
                 'php-version': major_minor,
                 'full-version': full_version,
-                'runs-on': WINDOWS_RUNNER,
-                'releaseDate': api_release
+                'runs-on': WINDOWS_RUNNER
             })
 
     matrix_json = json.dumps({'include': build_matrix})
