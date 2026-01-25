@@ -329,37 +329,26 @@ def create_windows_archive(php_version, full_version):
 
         # Create output structure: php-{version}/
         output_dir = work_dir / f'php-{full_version}'
-        output_dir.mkdir()
 
-        # Copy php.exe as php-cli.exe
-        php_exe = php_source / 'php.exe'
+        # Copy everything except dev/ (not needed for runtime)
+        # Rename php.exe to php-cli.exe during copy
+        def copy_filter(src, names):
+            # Exclude dev/ directory (headers and .lib files for compiling extensions)
+            return ['dev'] if 'dev' in names else []
+
+        shutil.copytree(php_source, output_dir, ignore=copy_filter)
+        print(f"Copied PHP directory (excluding dev/)")
+
+        # Rename php.exe to php-cli.exe
+        php_exe = output_dir / 'php.exe'
         if php_exe.exists():
-            shutil.copy(php_exe, output_dir / 'php-cli.exe')
-            print("Copied php.exe -> php-cli.exe")
-
-        # Copy php-cgi.exe
-        php_cgi = php_source / 'php-cgi.exe'
-        if php_cgi.exists():
-            shutil.copy(php_cgi, output_dir / 'php-cgi.exe')
-            print("Copied php-cgi.exe")
-
-        # Copy all root DLLs (runtime dependencies)
-        for dll in php_source.glob('*.dll'):
-            shutil.copy(dll, output_dir / dll.name)
-        print(f"Copied {len(list(php_source.glob('*.dll')))} DLL files")
-
-        # Copy ext/ directory with extensions
-        ext_source = php_source / 'ext'
-        ext_dest = output_dir / 'ext'
-        if ext_source.exists():
-            shutil.copytree(ext_source, ext_dest)
-            print(f"Copied ext/ directory with {len(list(ext_source.glob('*.dll')))} extensions")
-        else:
-            ext_dest.mkdir()
+            php_exe.rename(output_dir / 'php-cli.exe')
+            print("Renamed php.exe -> php-cli.exe")
 
         # Add Xdebug to ext/ if available
-        if xdebug_path and xdebug_path.exists():
-            shutil.copy(xdebug_path, ext_dest / 'php_xdebug.dll')
+        ext_dir = output_dir / 'ext'
+        if xdebug_path and xdebug_path.exists() and ext_dir.exists():
+            shutil.copy(xdebug_path, ext_dir / 'php_xdebug.dll')
             print("Added Xdebug to ext/")
 
         # Create final ZIP archive
