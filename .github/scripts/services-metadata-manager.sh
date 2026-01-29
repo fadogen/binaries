@@ -115,8 +115,9 @@ check_versions() {
         done
     done
 
-    # Build matrix array
+    # Build matrix arrays (separate for Unix builds and Windows downloads)
     local matrix_items=()
+    local windows_matrix_items=()
 
     # Filter services if FILTER_SERVICE is set
     local base_services="$AVAILABLE_SERVICES"
@@ -206,20 +207,26 @@ check_versions() {
                             log_info "Update: ${service} ${major} ${os}/${arch} -> ${recipe_version} (was: ${metadata_latest})"
                         fi
 
-                        # Add to build matrix with all info
-                        matrix_items+=("{\"service\": \"$service\", \"version\": \"$recipe_version\", \"major\": \"$major\", \"recipe\": \"$recipe_name\", \"os\": \"$os\", \"arch\": \"$arch\", \"runs-on\": \"$runs_on\"}")
+                        # Add to appropriate matrix based on OS
+                        if [[ "$os" == "windows" ]]; then
+                            # Windows uses pre-built binaries (download only)
+                            windows_matrix_items+=("{\"service\": \"$service\", \"version\": \"$recipe_version\", \"major\": \"$major\", \"os\": \"$os\", \"arch\": \"$arch\", \"runs-on\": \"$runs_on\"}")
+                        else
+                            # Unix (darwin/linux) builds from source
+                            matrix_items+=("{\"service\": \"$service\", \"version\": \"$recipe_version\", \"major\": \"$major\", \"recipe\": \"$recipe_name\", \"os\": \"$os\", \"arch\": \"$arch\", \"runs-on\": \"$runs_on\"}")
+                        fi
                     fi
                 done
             done
         done
     done
 
-    # Build matrix JSON
+    # Build Unix matrix JSON
     local matrix_json
     if [[ ${#matrix_items[@]} -eq 0 ]]; then
         matrix_json='{"include":[]}'
         echo "should-build=false" >> "${GITHUB_OUTPUT:-/dev/stdout}"
-        log_info "No builds needed"
+        log_info "No Unix builds needed"
     else
         # Sort matrix: MySQL first (slowest build), then by OS, then by service
         local matrix_items_str
@@ -228,10 +235,26 @@ check_versions() {
             jq -c '.[]' | tr '\n' ',' | sed 's/,$//')
         matrix_json=$(echo "{\"include\": [$matrix_items_str]}" | jq -c)
         echo "should-build=true" >> "${GITHUB_OUTPUT:-/dev/stdout}"
-        log_info "Build matrix generated with ${#matrix_items[@]} items (MySQL prioritized)"
+        log_info "Unix build matrix generated with ${#matrix_items[@]} items (MySQL prioritized)"
     fi
-
     echo "build-matrix=$matrix_json" >> "${GITHUB_OUTPUT:-/dev/stdout}"
+
+    # Build Windows matrix JSON
+    local windows_matrix_json
+    if [[ ${#windows_matrix_items[@]} -eq 0 ]]; then
+        windows_matrix_json='{"include":[]}'
+        echo "should-build-windows=false" >> "${GITHUB_OUTPUT:-/dev/stdout}"
+        log_info "No Windows downloads needed"
+    else
+        local windows_matrix_items_str
+        windows_matrix_items_str=$(printf '%s\n' "${windows_matrix_items[@]}" | \
+            jq -s 'sort_by(.service)' | \
+            jq -c '.[]' | tr '\n' ',' | sed 's/,$//')
+        windows_matrix_json=$(echo "{\"include\": [$windows_matrix_items_str]}" | jq -c)
+        echo "should-build-windows=true" >> "${GITHUB_OUTPUT:-/dev/stdout}"
+        log_info "Windows download matrix generated with ${#windows_matrix_items[@]} items"
+    fi
+    echo "windows-matrix=$windows_matrix_json" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 }
 
 # ================================

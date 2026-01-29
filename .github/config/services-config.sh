@@ -16,24 +16,27 @@ SINGLE_VERSION_SERVICES="valkey"
 # CONFIGURATION MULTI-OS
 # ================================
 
-# OS supportés (Windows désactivé pour le moment)
-SUPPORTED_OS="darwin linux"
+# OS supportés
+SUPPORTED_OS="darwin linux windows"
 
 # Architectures par OS
 get_architectures_for_os() {
     local os="$1"
     case "$os" in
         darwin|linux) echo "arm64 x86_64" ;;
+        windows) echo "x86_64" ;;  # Windows uniquement x86_64
         *) echo "" ;;
     esac
 }
 
 # Services disponibles par OS
+# Note: Redis et Valkey ne sont pas supportés sur Windows (pas de binaires officiels)
 get_services_for_os() {
     local os="$1"
     case "$os" in
         darwin) echo "mariadb mysql postgresql redis valkey" ;;
         linux) echo "mariadb mysql postgresql redis valkey" ;;
+        windows) echo "mariadb mysql postgresql" ;;  # Pas de Redis/Valkey sur Windows
         *) echo "" ;;
     esac
 }
