@@ -30,13 +30,14 @@ get_architectures_for_os() {
 }
 
 # Services disponibles par OS
-# Note: Redis et Valkey ne sont pas supportés sur Windows (pas de binaires officiels)
+# Note: Valkey n'est pas supporté sur Windows (aucun port n'existe)
+# Redis Windows est fourni par zkteco-home/redis-windows (port communautaire)
 get_services_for_os() {
     local os="$1"
     case "$os" in
         darwin) echo "mariadb mysql postgresql redis valkey" ;;
         linux) echo "mariadb mysql postgresql redis valkey" ;;
-        windows) echo "mariadb mysql postgresql" ;;  # Pas de Redis/Valkey sur Windows
+        windows) echo "mariadb mysql postgresql redis" ;;  # Pas de Valkey sur Windows
         *) echo "" ;;
     esac
 }
