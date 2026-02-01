@@ -137,6 +137,11 @@ jobs:
 
       - name: "Build PHP"
         run: |
+          # Workaround for static-php-cli bug on macOS
+          # See: https://github.com/crazywhalecc/static-php-cli Shell.php:43 trim(false) issue
+          # getenv() returns false when var is unset, but trim() expects string
+          export SPC_CMD_VAR_PHP_MAKE_EXTRA_LDFLAGS=""
+
           # On Linux, use glibc to support shared extensions (musl doesn't support dlopen)
           if [[ "${{ matrix.os }}" == "linux" ]]; then
             export SPC_LIBC=glibc
