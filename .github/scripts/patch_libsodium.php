@@ -14,7 +14,7 @@ if (PHP_OS_FAMILY !== 'Linux') {
 }
 
 $target = SOURCE_PATH . '/libsodium/src/libsodium/crypto_ipcrypt/ipcrypt_armcrypto.c';
-$marker = SOURCE_PATH . '/libsodium/.fadogen_patched';
+$marker = SOURCE_PATH . '/libsodium/.spin_patched';
 
 // Skip if file doesn't exist yet (not extracted) or already patched
 if (!file_exists($target) || file_exists($marker)) {

@@ -137,18 +137,14 @@ jobs:
 
       - name: "Build PHP"
         run: |
-          export SPC_PHP_VERSION_SHORT=$(echo ${{ matrix.php-version }} | sed 's/\.//g' | cut -c1-2)
-
           # On Linux, use glibc to support shared extensions (musl doesn't support dlopen)
           if [[ "${{ matrix.os }}" == "linux" ]]; then
             export SPC_LIBC=glibc
           fi
 
           # Build with patches:
-          # - patch_fadogen_ini_scan.php: Custom INI scan dir per PHP version
           # - patch_libsodium.php: Fix GCC aarch64 NEON types (commit 6702f69bef not in 1.0.21)
           ./spc build $EXTENSIONS --build-cli --build-fpm --build-shared=xdebug \
-            -P .github/scripts/patch_fadogen_ini_scan.php \
             -P .github/scripts/patch_libsodium.php
 
       - name: "Upload build logs on failure"
