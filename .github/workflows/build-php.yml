@@ -302,13 +302,15 @@ jobs:
           echo "CHECKSUM_SHA256=$CHECKSUM_SHA256" >> $GITHUB_ENV
           echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
           echo "XDEBUG_VERSION=$XDEBUG_VERSION" >> $GITHUB_ENV
+          echo "REDIS_VERSION=$REDIS_VERSION" >> $GITHUB_ENV
 
       - name: "Save checksum"
         run: |
-          # Format: version,os,arch,sha256,filename,xdebug
+          # Format: version,os,arch,sha256,filename,xdebug,redis
           XDEBUG="${XDEBUG_VERSION:-}"
-          echo "${{ matrix.full-version }},windows,x86_64,$CHECKSUM_SHA256,$ARCHIVE_NAME,$XDEBUG" > checksum-${{ matrix.full-version }}-windows-x86_64.txt
-          echo "Checksum saved: ${{ matrix.full-version }},windows,x86_64,$CHECKSUM_SHA256,$ARCHIVE_NAME,$XDEBUG"
+          REDIS="${REDIS_VERSION:-}"
+          echo "${{ matrix.full-version }},windows,x86_64,$CHECKSUM_SHA256,$ARCHIVE_NAME,$XDEBUG,$REDIS" > checksum-${{ matrix.full-version }}-windows-x86_64.txt
+          echo "Checksum saved: ${{ matrix.full-version }},windows,x86_64,$CHECKSUM_SHA256,$ARCHIVE_NAME,$XDEBUG,$REDIS"
 
       - name: "Upload checksum info"
         uses: actions/upload-artifact@v6

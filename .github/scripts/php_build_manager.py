@@ -33,6 +33,10 @@ VS_VERSION_MAP = {
 XDEBUG_VERSION = '3.5.0'
 XDEBUG_BASE_URL = 'https://xdebug.org/files'
 
+# Redis configuration
+REDIS_VERSION = '6.3.0'
+REDIS_BASE_URL = 'https://downloads.php.net/~windows/pecl/releases/redis'
+
 TARGET_CONFIG = {
     ('darwin', 'arm64'): {'runner': 'macos-26', 'spc_binary': 'spc-macos-aarch64'},
     ('darwin', 'x86_64'): {'runner': 'macos-15-intel', 'spc_binary': 'spc-macos-x86_64'},
@@ -80,6 +84,12 @@ def get_xdebug_url(php_version):
     return f"{XDEBUG_BASE_URL}/php_xdebug-{XDEBUG_VERSION}-{php_version}-nts-{vs}-x86_64.dll"
 
 
+def get_redis_url(php_version):
+    """Generate Redis DLL download URL for Windows (ZIP archive)."""
+    vs = get_vs_version(php_version)
+    return f"{REDIS_BASE_URL}/{REDIS_VERSION}/php_redis-{REDIS_VERSION}-{php_version}-nts-{vs}-x64.zip"
+
+
 def get_windows_archive_filename(full_version):
     """Generate Windows archive filename (ZIP format)."""
     return f"php-{full_version}-{WINDOWS_OS}-{WINDOWS_ARCH}.zip"
@@ -94,6 +104,16 @@ def get_major_minor(full_version):
 def check_xdebug_available(php_version):
     """Check if Xdebug is available for a PHP version via HEAD request."""
     url = get_xdebug_url(php_version)
+    result = subprocess.run(
+        ['curl', '-fsSL', '-I', '--head', url],
+        capture_output=True, text=True
+    )
+    return result.returncode == 0
+
+
+def check_redis_available(php_version):
+    """Check if Redis is available for a PHP version via HEAD request."""
+    url = get_redis_url(php_version)
     result = subprocess.run(
         ['curl', '-fsSL', '-I', '--head', url],
         capture_output=True, text=True
@@ -310,6 +330,26 @@ def create_windows_archive(php_version, full_version):
         else:
             print(f"WARNING: Xdebug not available for PHP {php_version}, creating archive without Xdebug")
 
+        # Check Redis availability and download if available
+        redis_available = check_redis_available(php_version)
+        redis_dll_path = None
+        if redis_available:
+            redis_url = get_redis_url(php_version)
+            redis_zip_path = work_dir / 'redis.zip'
+            print(f"Downloading Redis from {redis_url}")
+            urllib.request.urlretrieve(redis_url, redis_zip_path)
+
+            # Extract php_redis.dll from ZIP
+            with zipfile.ZipFile(redis_zip_path, 'r') as zf:
+                for name in zf.namelist():
+                    if name.endswith('php_redis.dll'):
+                        redis_dll_path = work_dir / 'php_redis.dll'
+                        with zf.open(name) as src, open(redis_dll_path, 'wb') as dst:
+                            dst.write(src.read())
+                        break
+        else:
+            print(f"WARNING: Redis not available for PHP {php_version}, creating archive without Redis")
+
         # Extract PHP
         extract_dir = work_dir / 'extracted'
         with zipfile.ZipFile(php_zip_path, 'r') as zf:
@@ -351,6 +391,11 @@ def create_windows_archive(php_version, full_version):
             shutil.copy(xdebug_path, ext_dir / 'php_xdebug.dll')
             print("Added Xdebug to ext/")
 
+        # Add Redis to ext/ if available
+        if redis_dll_path and redis_dll_path.exists() and ext_dir.exists():
+            shutil.copy(redis_dll_path, ext_dir / 'php_redis.dll')
+            print("Added Redis to ext/")
+
         # Create final ZIP archive
         archive_name = get_windows_archive_filename(full_version)
         with zipfile.ZipFile(archive_name, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
@@ -359,11 +404,13 @@ def create_windows_archive(php_version, full_version):
                     arcname = file_path.relative_to(work_dir)
                     zf.write(file_path, arcname)
 
-        # Write archive info with xdebug version
+        # Write archive info with extension versions
         xdebug_info = XDEBUG_VERSION if xdebug_available else ''
+        redis_info = REDIS_VERSION if redis_available else ''
         with open('archive_info.txt', 'w') as f:
             f.write(f'ARCHIVE_NAME={archive_name}\n')
             f.write(f'XDEBUG_VERSION={xdebug_info}\n')
+            f.write(f'REDIS_VERSION={redis_info}\n')
 
         print(f"Created {archive_name}")
 
@@ -379,16 +426,17 @@ def update_metadata(build_matrix_json, archive_checksums, supported_versions_jso
     supported_versions = json.loads(supported_versions_json)
     windows_matrix = json.loads(windows_matrix_json) if windows_matrix_json else {'include': []}
 
-    # Parse checksums: format is "version,os,arch,sha256,filename[,xdebug]"
+    # Parse checksums: format is "version,os,arch,sha256,filename[,xdebug[,redis]]"
     checksums_map = {}
     for line in archive_checksums.strip().split('\n'):
         if line:
             parts = line.split(',')
             if len(parts) < 5:
-                raise ValueError(f"Invalid checksum format - expected version,os,arch,sha256,filename[,xdebug]: {line}")
+                raise ValueError(f"Invalid checksum format - expected version,os,arch,sha256,filename[,xdebug[,redis]]: {line}")
 
             version, os_name, arch, sha256, filename = parts[:5]
             xdebug = parts[5] if len(parts) > 5 else None
+            redis = parts[6] if len(parts) > 6 else None
 
             key = (os_name, arch)
             if key not in checksums_map:
@@ -396,7 +444,8 @@ def update_metadata(build_matrix_json, archive_checksums, supported_versions_jso
             checksums_map[key][version] = {
                 'sha256': sha256,
                 'filename': filename,
-                'xdebug': xdebug
+                'xdebug': xdebug,
+                'redis': redis
             }
 
     # Update metadata per os+architecture (Unix)
@@ -459,7 +508,8 @@ def update_metadata(build_matrix_json, archive_checksums, supported_versions_jso
             'filename': checksum_data['filename'],
             'sha256': checksum_data['sha256'],
             'isEol': major_minor not in supported_versions,
-            'xdebug': checksum_data.get('xdebug')
+            'xdebug': checksum_data.get('xdebug'),
+            'redis': checksum_data.get('redis')
         }
 
         print(f"Updated {major_minor} (windows) -> {full_version}")
