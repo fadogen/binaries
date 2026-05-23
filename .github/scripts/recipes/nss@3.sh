@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build recipe for NSS 3.117
+# Build recipe for NSS
 # Using gyp/ninja build system (recommended by Mozilla)
 # Description: Network Security Services
 
@@ -7,9 +7,11 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="nss@3"
-export PACKAGE_VERSION="3.118"
-export PACKAGE_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_118_RTM/src/nss-3.118-with-nspr-4.37.tar.gz"
-export PACKAGE_SHA256="14253b498babbcddc36e65df531292f69f7359bc975ca082a5801ee4147a7acc"
+export PACKAGE_VERSION="3.124"
+NSPR_VERSION="4.39"
+NSS_VERSION_UNDERSCORED="${PACKAGE_VERSION//./_}"
+export PACKAGE_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_${NSS_VERSION_UNDERSCORED}_RTM/src/nss-${PACKAGE_VERSION}-with-nspr-${NSPR_VERSION}.tar.gz"
+export PACKAGE_SHA256="362de77e31a16e64be500a22980448c7f08e98dd8ab85c29d0c5e41d4df68d1c"
 
 # Runtime dependencies (none - NSPR built together with NSS via build.sh)
 export DEPENDENCIES=()

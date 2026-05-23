@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="libunistring"
-export PACKAGE_VERSION="1.4.1"
-export PACKAGE_SHA256="12542ad7619470efd95a623174dcd4b364f2483caf708c6bee837cb53a54cb9d"
+export PACKAGE_VERSION="1.4.2"
+export PACKAGE_SHA256="e82664b170064e62331962126b259d452d53b227bb4a93ab20040d846fec01d8"
 
 # Derived from version
 export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"

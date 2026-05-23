@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="openssl@3"
-export PACKAGE_VERSION="3.6.0"
-export PACKAGE_SHA256="b6a5f44b7eb69e3fa35dbf15524405b44837a481d43d81daddde3ff21fcbb8e9"
+export PACKAGE_VERSION="3.6.2"
+export PACKAGE_SHA256="aaf51a1fe064384f811daeaeb4ec4dce7340ec8bd893027eee676af31e83a04f"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/openssl/openssl/releases/download/openssl-${PACKAGE_VERSION}/openssl-${PACKAGE_VERSION}.tar.gz"

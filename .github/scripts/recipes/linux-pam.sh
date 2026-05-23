@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="linux-pam"
-export PACKAGE_VERSION="1.7.1"
-export PACKAGE_SHA256="21dbcec6e01dd578f14789eac9024a18941e6f2702a05cf91b28c232eeb26ab0"
+export PACKAGE_VERSION="1.7.2"
+export PACKAGE_SHA256="3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a"
 
 # Derived from version (note: archive uses Linux-PAM capitalization)
 export PACKAGE_URL="https://github.com/${PACKAGE_NAME}/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/Linux-PAM-${PACKAGE_VERSION}.tar.xz"

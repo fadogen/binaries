@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="mariadb@10.11"
-export PACKAGE_VERSION="10.11.15"
-export PACKAGE_SHA256="5311e85765402bde5a81a9a7b2643a7378d20316a2822bfad4b6ddcf104759a5"
+export PACKAGE_VERSION="10.11.17"
+export PACKAGE_SHA256="2c54afc85e5f592efcec19042fb0baec8de0332bd3da55b4418fe2bfdf343de4"
 
 # Derived from version
 export PACKAGE_URL="https://archive.mariadb.org/mariadb-${PACKAGE_VERSION}/source/mariadb-${PACKAGE_VERSION}.tar.gz"

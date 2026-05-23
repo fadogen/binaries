@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="abseil"
-export PACKAGE_VERSION="20260107.0"
-export PACKAGE_SHA256="4c124408da902be896a2f368042729655709db5e3004ec99f57e3e14439bc1b2"
+export PACKAGE_VERSION="20260107.1"
+export PACKAGE_SHA256="4314e2a7cbac89cac25a2f2322870f343d81579756ceff7f431803c2c9090195"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/abseil/abseil-cpp/archive/refs/tags/${PACKAGE_VERSION}.tar.gz"

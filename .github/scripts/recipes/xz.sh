@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="xz"
-export PACKAGE_VERSION="5.8.2"
-export PACKAGE_SHA256="ce09c50a5962786b83e5da389c90dd2c15ecd0980a258dd01f70f9e7ce58a8f1"
+export PACKAGE_VERSION="5.8.3"
+export PACKAGE_SHA256="3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/tukaani-project/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"

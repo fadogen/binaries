@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="valkey"
-export PACKAGE_VERSION="9.0.1"
-export PACKAGE_SHA256="9cfbc5f32a2a6058ee0f8c532b9c4d24167cc49d719f091dd75f1bb8353a1fc5"
+export PACKAGE_VERSION="9.1"
+export PACKAGE_SHA256="9f872fb2510512e46839a7214d3fbbd4588c7636ec75ce0da2be751fddcc321c"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/valkey-io/${PACKAGE_NAME}/archive/refs/tags/${PACKAGE_VERSION}.tar.gz"

@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="icu4c@78"
-export PACKAGE_VERSION="78.2"
-export PACKAGE_SHA256="3e99687b5c435d4b209630e2d2ebb79906c984685e78635078b672e03c89df35"
+export PACKAGE_VERSION="78.3"
+export PACKAGE_SHA256="3a2e7a47604ba702f345878308e6fefeca612ee895cf4a5f222e7955fabfe0c0"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/unicode-org/icu/releases/download/release-${PACKAGE_VERSION}/icu4c-${PACKAGE_VERSION}-sources.tgz"

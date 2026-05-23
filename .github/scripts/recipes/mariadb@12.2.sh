@@ -1,13 +1,13 @@
 #!/bin/bash
-# Build recipe for mariadb@12.1
+# Build recipe for mariadb@12.2
 # Description: Drop-in replacement for MySQL
 
 set -e
 
 # Metadata
-export PACKAGE_NAME="mariadb@12.1"
-export PACKAGE_VERSION="12.1.2"
-export PACKAGE_SHA256="6eb4f9aa99ee40e86a7753918e40d1745bfa90c5f91984d22fcedb2e9b570088"
+export PACKAGE_NAME="mariadb@12.2"
+export PACKAGE_VERSION="12.2.2"
+export PACKAGE_SHA256="fe82fe2e9af98dfcad8c0266a283ca349b78fd46989fff0d5e1ffca644b514bd"
 
 # Derived from version
 export PACKAGE_URL="https://archive.mariadb.org/mariadb-${PACKAGE_VERSION}/source/mariadb-${PACKAGE_VERSION}.tar.gz"

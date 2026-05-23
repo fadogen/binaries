@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="libxml2"
-export PACKAGE_VERSION="2.15.1"
-export PACKAGE_SHA256="c008bac08fd5c7b4a87f7b8a71f283fa581d80d80ff8d2efd3b26224c39bc54c"
+export PACKAGE_VERSION="2.15.3"
+export PACKAGE_SHA256="78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07"
 
 # Derived from version
 LIBXML2_MAJOR_MINOR="${PACKAGE_VERSION%.*}"

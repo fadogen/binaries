@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="zlib"
-export PACKAGE_VERSION="1.3.1"
-export PACKAGE_SHA256="9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23"
+export PACKAGE_VERSION="1.3.2"
+export PACKAGE_SHA256="bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16"
 
 # Derived from version
 export PACKAGE_URL="https://zlib.net/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"

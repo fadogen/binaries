@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="krb5"
-export PACKAGE_VERSION="1.22.1"
-export PACKAGE_SHA256="1a8832b8cad923ebbf1394f67e2efcf41e3a49f460285a66e35adec8fa0053af"
+export PACKAGE_VERSION="1.22.2"
+export PACKAGE_SHA256="3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13"
 
 # Derived from version (URL uses major.minor in path)
 PACKAGE_VERSION_SHORT="${PACKAGE_VERSION%.*}"

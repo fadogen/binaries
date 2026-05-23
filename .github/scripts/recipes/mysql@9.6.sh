@@ -1,13 +1,13 @@
 #!/bin/bash
-# Build recipe for mysql@9.5
+# Build recipe for mysql@9.6
 # Description: Open source relational database management system
 
 set -e
 
 # Metadata
-export PACKAGE_NAME="mysql@9.5"
-export PACKAGE_VERSION="9.5.0"
-export PACKAGE_SHA256="ef3343981375865a2519f72b600e55f9c646e60e204a2964d3b7e8e748a110a5"
+export PACKAGE_NAME="mysql@9.6"
+export PACKAGE_VERSION="9.6.0"
+export PACKAGE_SHA256="240061d869d5ae188c9a333845928899e9d963ccbd67865a8a2e4b6fcb67178c"
 
 # Derived from version (major.minor for download path)
 MYSQL_MAJOR_MINOR="${PACKAGE_VERSION%.*}"

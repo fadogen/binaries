@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="groonga"
-export PACKAGE_VERSION="15.2.3"
-export PACKAGE_SHA256="0f02cd5e1abf69dada8d7d875f40a9afa5014fcc8c0d645f6bfb180e718ea672"
+export PACKAGE_VERSION="16.0.5"
+export PACKAGE_SHA256="1b56c83929853a21990ada02621a5fea23e22093badf419ac71bf7e85d234393"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/groonga/groonga/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"

@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="gettext"
-export PACKAGE_VERSION="0.26"
-export PACKAGE_SHA256="39acf4b0371e9b110b60005562aace5b3631fed9b1bb9ecccfc7f56e58bb1d7f"
+export PACKAGE_VERSION="1.0"
+export PACKAGE_SHA256="85d99b79c981a404874c02e0342176cf75c7698e2b51fe41031cf6526d974f1a"
 
 # Derived from version
 export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"

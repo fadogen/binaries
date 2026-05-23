@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="redis@8"
-export PACKAGE_VERSION="8.4.0"
-export PACKAGE_SHA256="ca909aa15252f2ecb3a048cd086469827d636bf8334f50bb94d03fba4bfc56e8"
+export PACKAGE_VERSION="8.6.3"
+export PACKAGE_SHA256="9f54d4458c52be5472cdd1347d737f1d488b520fc3d0911cba47302de8d836e2"
 
 # Derived from version
 export PACKAGE_URL="https://download.redis.io/releases/redis-${PACKAGE_VERSION}.tar.gz"
