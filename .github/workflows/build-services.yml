@@ -168,6 +168,13 @@ jobs:
           sudo mkdir -p /opt/fadogen
           sudo chown "$(whoami)" /opt/fadogen
 
+      - name: "[Linux] Update Homebrew"
+        if: matrix.os == 'linux'
+        run: |
+          echo "Updating Homebrew..."
+          brew update >/dev/null 2>&1
+          echo "Homebrew updated"
+
       - name: "[Linux] Build from source"
         if: matrix.os == 'linux'
         env:
