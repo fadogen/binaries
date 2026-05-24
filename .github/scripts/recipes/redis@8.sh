@@ -50,15 +50,17 @@ build() {
 
     cd "${SOURCE_DIR}"
 
-    # Build with make (redis doesn't use configure)
-    # BUILD_TLS=yes enables TLS support with OpenSSL
-    make -j"${NPROC}" \
+    # Build + install with a single make call (matches Homebrew formula).
+    # BUILD_TLS=yes enables TLS support with OpenSSL.
+    # LD=cc is required on macOS: redis' tests/modules/Makefile links .so via
+    # $(LD), which falls back to bare `ld` on Darwin and can't parse the
+    # `-Wl,-headerpad_max_install_names` syntax in LDFLAGS. On Linux the
+    # modules Makefile forces LD=gcc internally so this is a no-op there.
+    make -j"${NPROC}" install \
         PREFIX="${PREFIX}" \
         CC="${CC:-cc}" \
+        LD="${CC:-cc}" \
         BUILD_TLS=yes
-
-    # Install directly to final location
-    make install PREFIX="${PREFIX}"
 
     echo "✓ ${PACKAGE_NAME} built successfully"
 }
