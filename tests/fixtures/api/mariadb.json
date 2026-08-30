@@ -1,0 +1,24 @@
+{
+  "name": "mariadb",
+  "versions": {
+    "stable": "12.3.3"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://archive.mariadb.org/mariadb-12.3.3/source/mariadb-12.3.3.tar.gz",
+      "checksum": "e99d739fd4a55f9a11dea7bd2287a262673e287550af3071c8469dd2bec0c163"
+    }
+  },
+  "versioned_formulae": [
+    "mariadb@11.8",
+    "mariadb@11.4",
+    "mariadb@10.11",
+    "mariadb@10.6",
+    "mariadb@10.5"
+  ],
+  "aliases": [
+    "mariadb@12.3"
+  ],
+  "patches": []
+}

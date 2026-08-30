@@ -1,0 +1,21 @@
+{
+  "name": "postgresql@19",
+  "versions": {
+    "stable": "19.1"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://ftp.postgresql.org/pub/source/v19.1/postgresql-19.1.tar.bz2",
+      "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "versioned_formulae": [
+    "postgresql@18"
+  ],
+  "aliases": [
+    "postgres",
+    "postgresql"
+  ],
+  "patches": []
+}

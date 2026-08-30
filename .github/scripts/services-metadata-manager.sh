@@ -18,6 +18,8 @@ SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 CONFIG_PATH="${SCRIPT_DIR}/../config/services-config.sh"
 # shellcheck source=../config/services-config.sh
 source "$CONFIG_PATH"
+# shellcheck source=lib/recipe.sh
+source "${SCRIPT_DIR}/lib/recipe.sh"
 
 # Runners by OS and architecture
 declare -A OS_ARCH_RUNNERS=(
@@ -66,19 +68,12 @@ get_version_from_recipe() {
         log_error "Recipe name required"
     fi
 
-    local recipe_file="${SCRIPT_DIR}/recipes/${recipe_name}.sh"
-
-    if [[ ! -f "$recipe_file" ]]; then
-        log_error "Recipe not found: $recipe_file"
-    fi
-
-    # Extract PACKAGE_VERSION from recipe file
     local version
-    # shellcheck disable=SC1090
-    version=$(source "$recipe_file" && echo "$PACKAGE_VERSION")
+    version=$(recipe_field "${SCRIPT_DIR}/recipes/${recipe_name}.sh" PACKAGE_VERSION) \
+        || log_error "Recipe not found: ${recipe_name}"
 
     if [[ -z "$version" ]]; then
-        log_error "Could not extract PACKAGE_VERSION from $recipe_file"
+        log_error "Could not extract PACKAGE_VERSION from ${recipe_name}"
     fi
 
     echo "$version"
@@ -135,9 +130,7 @@ check_versions() {
 
     # Iterate over all OS
     for os in $os_to_check; do
-        # Get services and architectures for this OS
-        local services_for_os
-        services_for_os=$(get_services_for_os "$os")
+        # Get architectures for this OS
         local archs_for_os
         archs_for_os=$(get_architectures_for_os "$os")
 

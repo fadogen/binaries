@@ -1,0 +1,18 @@
+{
+  "name": "redis@8.2",
+  "versions": {
+    "stable": "8.2.9"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://download.redis.io/releases/redis-8.2.9.tar.gz",
+      "checksum": "531b314e5557ad76d941f605b3e3162ac61dc141f37c407e1f91fcfe17ea8c30"
+    }
+  },
+  "versioned_formulae": [
+    "redis@6.2"
+  ],
+  "aliases": [],
+  "patches": []
+}

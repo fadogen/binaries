@@ -1,0 +1,44 @@
+{
+  "name": "openssl@3",
+  "versions": {
+    "stable": "3.6.3"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://github.com/openssl/openssl/releases/download/openssl-3.6.3/openssl-3.6.3.tar.gz",
+      "checksum": "243a86649cf6f23eeb6a2ff2456e09e5d77dd9018a54d3d96b0c6bdd6ba6c7f1"
+    }
+  },
+  "versioned_formulae": [
+    "openssl@4",
+    "openssl@3.5",
+    "openssl@3.0"
+  ],
+  "aliases": [
+    "openssl",
+    "openssl@3.6"
+  ],
+  "patches": [
+    {
+      "strip": "p1",
+      "file": "Patches/openssl/9061e9381306a053908177aca8509c262015cdf3.patch",
+      "type": "backport"
+    },
+    {
+      "strip": "p1",
+      "file": "Patches/openssl/2e2438b494e7f661be5212e4732f7fab86bf6303.patch",
+      "type": "backport"
+    },
+    {
+      "strip": "p1",
+      "file": "Patches/openssl/ea598f5dd23f1d64d8952e20fcf95d9f3a21d654.patch",
+      "type": "backport"
+    },
+    {
+      "strip": "p1",
+      "file": "Patches/openssl/cffb97915813aeeef58ee9a0d33c05d3d45e1fe6.patch",
+      "type": "backport"
+    }
+  ]
+}

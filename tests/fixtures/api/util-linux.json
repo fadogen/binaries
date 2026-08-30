@@ -1,0 +1,29 @@
+{
+  "name": "util-linux",
+  "versions": {
+    "stable": "2.42.2"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.42/util-linux-2.42.2.tar.xz",
+      "checksum": "03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a"
+    }
+  },
+  "versioned_formulae": [],
+  "aliases": [],
+  "patches": [
+    {
+      "strip": "p1",
+      "url": "https://github.com/util-linux/util-linux/commit/d22edc2f100eb8dd83d3515758565cb73b0d2eed.patch?full_index=1",
+      "sha256": "2fb01154faa3fd8b0fce27eb88049ed9c8f839e706e412399c19c087f7f3b5e1",
+      "type": "unofficial",
+      "resolves": [
+        {
+          "type": "defect",
+          "id": "https://github.com/util-linux/util-linux/pull/4173"
+        }
+      ]
+    }
+  ]
+}

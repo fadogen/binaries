@@ -1,0 +1,16 @@
+{
+  "name": "nss",
+  "versions": {
+    "stable": "3.128"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_128_RTM/src/nss-3.128.tar.gz",
+      "checksum": "70ea638f4e4fc341b24782ef9af6d88a2d3280ef5e46736748411fe8ca586351"
+    }
+  },
+  "versioned_formulae": [],
+  "aliases": [],
+  "patches": []
+}

@@ -17,6 +17,7 @@ SINGLE_VERSION_SERVICES="valkey"
 # ================================
 
 # OS supportés
+# shellcheck disable=SC2034  # lu par les scripts qui sourcent cette config
 SUPPORTED_OS="darwin linux windows"
 
 # Architectures par OS

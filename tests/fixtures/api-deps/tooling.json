@@ -1,0 +1,18 @@
+{
+  "name": "tooling",
+  "versions": {
+    "stable": "1.0"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://example.test/tooling-1.0.tar.gz",
+      "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "versioned_formulae": [],
+  "aliases": [],
+  "patches": [],
+  "dependencies": [],
+  "build_dependencies": []
+}
