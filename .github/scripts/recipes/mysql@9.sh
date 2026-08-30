@@ -5,9 +5,9 @@
 set -e
 
 # Metadata
-export PACKAGE_NAME="mysql@9.6"
-export PACKAGE_VERSION="9.6.0"
-export PACKAGE_SHA256="240061d869d5ae188c9a333845928899e9d963ccbd67865a8a2e4b6fcb67178c"
+export PACKAGE_NAME="mysql@9"
+export PACKAGE_VERSION="9.7.2"
+export PACKAGE_SHA256="e5a676c7cb73738dc6ea33db2093806ebd512b629a139b897fcab68fcd81aaa4"
 
 # Derived from version (major.minor for download path)
 MYSQL_MAJOR_MINOR="${PACKAGE_VERSION%.*}"
