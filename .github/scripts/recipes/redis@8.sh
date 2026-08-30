@@ -21,6 +21,32 @@ export DEPENDENCIES=(
     "openssl@3"
 )
 
+# Build tools for the bundled modules, installed via Homebrew and not shipped.
+# RediSearch is C++/CMake, RedisJSON and vector-sets are Rust.
+export BUILD_DEPENDENCIES=(
+    "autoconf"
+    "automake"
+    "cmake"
+    "coreutils"
+    "libtool"
+    "python@3.14"
+    "rust"
+)
+
+# RediSearch needs GNU Make 4.0+, and macOS still ships 3.81 as `make`.
+export BUILD_DEPENDENCIES_MACOS=(
+    "make"
+)
+
+# Modules the `deploy` target is expected to produce. deploy.sh tolerates a
+# module failing to build, so their presence is checked rather than assumed.
+EXPECTED_MODULES=(
+    "redisbloom.so"
+    "redisearch.so"
+    "redistimeseries.so"
+    "rejson.so"
+)
+
 # Build function
 build() {
     local PREFIX="$1"
@@ -54,17 +80,52 @@ build() {
 
     cd "${SOURCE_DIR}"
 
-    # Build + install with a single make call (matches Homebrew formula).
+    # RediSearch sets CMAKE_CXX_STANDARD inside a function without PARENT_SCOPE,
+    # so no -std reaches the compile line and the compiler default is used.
+    export CXXFLAGS="${CXXFLAGS:-} -std=gnu++20"
+
+    # Redis 8 ships its modules in the tarball and builds them through GNU Make
+    # 4.0+. macOS still provides 3.81 as `make`, so use the `gmake` Homebrew
+    # installs; Linux already ships GNU Make 4.
+    local MAKE_BIN="make"
+    if [ "$(uname)" = "Darwin" ]; then
+        MAKE_BIN="gmake"
+    fi
+
+    # `deploy` builds and installs the server together with the bundled modules
+    # (RediSearch, RedisJSON, RedisBloom, RedisTimeSeries). `install` alone
+    # leaves them out, which is what this recipe used to ship.
     # BUILD_TLS=yes enables TLS support with OpenSSL.
     # LD=cc is required on macOS: redis' tests/modules/Makefile links .so via
     # $(LD), which falls back to bare `ld` on Darwin and can't parse the
     # `-Wl,-headerpad_max_install_names` syntax in LDFLAGS. On Linux the
     # modules Makefile forces LD=gcc internally so this is a no-op there.
-    make -j"${NPROC}" install \
+    MAKE="${MAKE_BIN}" "$MAKE_BIN" -j"${NPROC}" deploy \
         PREFIX="${PREFIX}" \
         CC="${CC:-cc}" \
         LD="${CC:-cc}" \
-        BUILD_TLS=yes
+        BUILD_TLS=yes \
+        REDISEARCH_GENERATE_HEADERS=0 \
+        IGNORE_MISSING_DEPS=1 \
+        LTO=0
+
+    # deploy.sh returns success when only some modules built, so a silent
+    # partial bundle is possible. Refuse it.
+    local missing=""
+    for module in "${EXPECTED_MODULES[@]}"; do
+        [ -f "${PREFIX}/lib/redis/modules/${module}" ] || missing="${missing} ${module}"
+    done
+    if [ -n "$missing" ]; then
+        echo "✗ modules missing from the build:${missing}" >&2
+        return 1
+    fi
 
     echo "✓ ${PACKAGE_NAME} built successfully"
+}
+
+post_install() {
+    local PREFIX="$1"
+
+    # Redis dlopens its modules and refuses any file without the execute bit.
+    chmod 0755 "${PREFIX}"/lib/redis/modules/*.so
 }
