@@ -31,6 +31,7 @@ source "${SCRIPT_DIR}/lib/colors.sh"
 source "${SCRIPT_DIR}/lib/download.sh"
 source "${SCRIPT_DIR}/lib/extract.sh"
 source "${SCRIPT_DIR}/lib/recipe.sh"
+source "${SCRIPT_DIR}/lib/paths.sh"
 source "${SCRIPT_DIR}/lib/provenance.sh"
 
 # Load platform-specific relocation functions
@@ -258,7 +259,8 @@ build_package() {
     archive_path=$(download_package "$pkg_url" "$pkg_sha256")
 
     # Extract source
-    local source_dir="${SOURCES_DIR}/${package_name}"
+    local source_dir
+    source_dir="${SOURCES_DIR}/$(source_dir_name "$package_name")"
     rm -rf "$source_dir"  # Clean old source
     extract_source "$archive_path" "$source_dir"
     echo -e "${indent}${GREEN}✓ Source ready${NC}"
