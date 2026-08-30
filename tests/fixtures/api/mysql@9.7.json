@@ -1,0 +1,24 @@
+{
+  "name": "mysql@9.7",
+  "versions": {
+    "stable": "9.7.2"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://cdn.mysql.com/Downloads/MySQL-9.7/mysql-9.7.2.tar.gz",
+      "checksum": "e5a676c7cb73738dc6ea33db2093806ebd512b629a139b897fcab68fcd81aaa4"
+    }
+  },
+  "versioned_formulae": [
+    "mysql@8.4",
+    "mysql@8.0"
+  ],
+  "aliases": [],
+  "patches": [
+    {
+      "strip": "p1",
+      "data": true
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+name: "Tests"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: "Unit tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Install bats"
+        run: npm install -g bats@1.13.0
+
+      - name: "Run the suite"
+        env:
+          # The unit suite runs against fixtures, never against the live API.
+          SKIP_NETWORK_TESTS: "1"
+        run: bats --print-output-on-failure tests/
+
+      - name: "Lint shell scripts"
+        run: |
+          shellcheck --severity=warning \
+            .github/scripts/*.sh \
+            .github/scripts/lib/*.sh \
+            .github/config/*.sh
+
+  upstream-integrity:
+    name: "Recipes still track a live formula"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Install bats"
+        run: npm install -g bats@1.13.0
+
+      - name: "Check every recipe against the Homebrew API"
+        run: bats --print-output-on-failure tests/repository.bats

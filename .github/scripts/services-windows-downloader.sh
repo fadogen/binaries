@@ -11,8 +11,6 @@ set -euo pipefail
 # Note: Valkey is NOT supported on Windows (no port exists)
 # Redis Windows is provided by zkteco-home/redis-windows (community port)
 
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-
 # ================================
 # UTILITY FUNCTIONS
 # ================================

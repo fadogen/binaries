@@ -1,0 +1,24 @@
+{
+  "name": "mysql@8.4",
+  "versions": {
+    "stable": "8.4.11"
+  },
+  "revision": 3,
+  "urls": {
+    "stable": {
+      "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11.tar.gz",
+      "checksum": "eb3051164d625dd346a8203f76e0d5d5d9aec51dbe9d51788e39ec6b3f1394c2"
+    }
+  },
+  "versioned_formulae": [
+    "mysql@9.7",
+    "mysql@8.0"
+  ],
+  "aliases": [],
+  "patches": [
+    {
+      "strip": "p1",
+      "data": true
+    }
+  ]
+}

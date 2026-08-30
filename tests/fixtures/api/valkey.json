@@ -1,0 +1,16 @@
+{
+  "name": "valkey",
+  "versions": {
+    "stable": "9.1.1"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://github.com/valkey-io/valkey/archive/refs/tags/9.1.1.tar.gz",
+      "checksum": "7d7232acd1b8a49b4e05d07a00b3ca8c801ae06ab633ca6a3423bc5f385ab7ee"
+    }
+  },
+  "versioned_formulae": [],
+  "aliases": [],
+  "patches": []
+}

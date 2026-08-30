@@ -1,0 +1,16 @@
+{
+  "name": "nspr",
+  "versions": {
+    "stable": "4.40"
+  },
+  "revision": 0,
+  "urls": {
+    "stable": {
+      "url": "https://archive.mozilla.org/pub/nspr/releases/v4.40/src/nspr-4.40.tar.gz",
+      "checksum": "c0c1884c627f3db7a783f7c7314c695226b2043696791d15519e7e0578c19bdc"
+    }
+  },
+  "versioned_formulae": [],
+  "aliases": [],
+  "patches": []
+}
