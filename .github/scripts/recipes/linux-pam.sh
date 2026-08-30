@@ -9,6 +9,10 @@ export PACKAGE_NAME="linux-pam"
 export PACKAGE_VERSION="1.7.2"
 export PACKAGE_SHA256="3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="2b3d6f9c790e2d1163a68095113b27105c8dfe9ac6450dfee1a9d39d7686f0d8"
+
 # Derived from version (note: archive uses Linux-PAM capitalization)
 export PACKAGE_URL="https://github.com/${PACKAGE_NAME}/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/Linux-PAM-${PACKAGE_VERSION}.tar.xz"
 

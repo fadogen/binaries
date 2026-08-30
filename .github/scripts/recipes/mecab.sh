@@ -9,6 +9,10 @@ export PACKAGE_NAME="mecab"
 export PACKAGE_VERSION="0.996"
 export PACKAGE_SHA256="e073325783135b72e666145c781bb48fada583d5224fb2490fb6c1403ba69c59"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="b350c550d1f63f9e392994eb4ba1a78e95cc3695c760bc9f95ff332aa3150fcb"
+
 # Derived from version (Debian pool format)
 export PACKAGE_URL="https://deb.debian.org/debian/pool/main/m/${PACKAGE_NAME}/${PACKAGE_NAME}_${PACKAGE_VERSION}.orig.tar.gz"
 

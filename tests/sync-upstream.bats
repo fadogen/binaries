@@ -302,3 +302,61 @@ RECIPE
     [ "$status" -ne 0 ]
     [[ "$stderr" == *"usage"* ]]
 }
+
+@test "apply reports a formula whose build logic changed since it was reviewed" {
+    export BREW_SOURCE_BASE="file://${FIXTURES_DIR}/formula-source"
+    cat > "${RECIPES_DIR}/redis@8.sh" <<'RECIPE'
+#!/bin/bash
+export PACKAGE_NAME="redis@8"
+export PACKAGE_VERSION="8.6.3"
+export PACKAGE_SHA256="staleaaaa"
+export PACKAGE_URL="https://download.redis.io/releases/redis-${PACKAGE_VERSION}.tar.gz"
+export BREW_FORMULA_REVIEWED="0000000000000000000000000000000000000000000000000000000000000000"
+RECIPE
+
+    run --separate-stderr "$SYNC" apply
+    [ "$status" -eq 0 ]
+
+    [ "$(jq -r '.recipes[0].formula_changed' <<<"$output")" = "true" ]
+    # The version still moves: a build-logic change must not strand a security fix.
+    [ "$(jq -r '.recipes[0].status' <<<"$output")" = "updated" ]
+    source "${LIB_DIR}/recipe.sh"
+    [ "$(recipe_field "${RECIPES_DIR}/redis@8.sh" PACKAGE_VERSION)" = "8.10.1" ]
+}
+
+@test "summary points at the formula history when its build logic moved" {
+    local report='{"command":"apply","recipes":[
+        {"recipe":"redis@8","formula":"redis","from":"8.6.3","to":"8.10.1","status":"updated","patches_not_replayed":0,"formula_changed":true,"formula_path":"Formula/r/redis.rb"},
+        {"recipe":"zlib","formula":"zlib","from":"1.3.2","to":"1.3.2","status":"current","patches_not_replayed":0,"formula_changed":false,"formula_path":"Formula/z/zlib.rb"}],
+        "new_major_lines":[]}'
+
+    run --separate-stderr bash -c "printf '%s' '$report' | '$SYNC' summary"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"redis@8"* ]]
+    [[ "$output" == *"homebrew-core/commits/master/Formula/r/redis.rb"* ]]
+    [[ "$output" != *"zlib.rb"* ]]
+}
+
+@test "review clears the signal, and the next sync stays quiet" {
+    export BREW_SOURCE_BASE="${FIXTURES_DIR}/formula-source"
+    export BREW_SOURCE_BASE="file://${FIXTURES_DIR}/formula-source"
+    cat > "${RECIPES_DIR}/redis@8.sh" <<'RECIPE'
+#!/bin/bash
+export PACKAGE_NAME="redis@8"
+export PACKAGE_VERSION="8.10.1"
+export PACKAGE_SHA256="60166c95ab7aedaa9dfe516de685be0a4dd87be95ded59ba429df14c13f1b663"
+export PACKAGE_URL="https://download.redis.io/releases/redis-${PACKAGE_VERSION}.tar.gz"
+export BREW_FORMULA_REVIEWED="0000000000000000000000000000000000000000000000000000000000000000"
+RECIPE
+
+    run --separate-stderr "$SYNC" check
+    [ "$(jq -r '.recipes[0].formula_changed' <<<"$output")" = "true" ]
+
+    run --separate-stderr "$SYNC" review "redis@8"
+    [ "$status" -eq 0 ]
+
+    run --separate-stderr "$SYNC" check
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.recipes[0].formula_changed' <<<"$output")" = "false" ]
+}

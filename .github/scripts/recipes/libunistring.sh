@@ -9,6 +9,10 @@ export PACKAGE_NAME="libunistring"
 export PACKAGE_VERSION="1.4.2"
 export PACKAGE_SHA256="e82664b170064e62331962126b259d452d53b227bb4a93ab20040d846fec01d8"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="47e15c61196660b5620a416bbae01a894b856ca6c712d66fe45c6aafaa617a4c"
+
 # Derived from version
 export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 

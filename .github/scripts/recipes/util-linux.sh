@@ -9,6 +9,10 @@ export PACKAGE_NAME="util-linux"
 export PACKAGE_VERSION="2.42.2"
 export PACKAGE_SHA256="03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="4c2174c9150d94ef5af9366406471c144bb8593fd3a3bfa1784d4c59071652e3"
+
 # Major.minor for URL path
 UTIL_LINUX_MAJOR_MINOR="${PACKAGE_VERSION%.*}"
 

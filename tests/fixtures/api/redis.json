@@ -17,5 +17,6 @@
   "aliases": [
     "redis@8.10"
   ],
-  "patches": []
+  "patches": [],
+  "ruby_source_path": "redis-8.10.1.rb"
 }

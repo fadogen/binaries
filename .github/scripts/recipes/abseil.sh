@@ -9,6 +9,10 @@ export PACKAGE_NAME="abseil"
 export PACKAGE_VERSION="20260817.0"
 export PACKAGE_SHA256="f7e05179df39c45434cad433f5783840bb3788ef322976f9138bc6b72b3a107d"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="ffe57de4b2a1fdb34e9af9e5eb4da0820830145e7ce3d11316e4700c6d20c1ff"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/abseil/abseil-cpp/archive/refs/tags/${PACKAGE_VERSION}.tar.gz"
 

@@ -11,6 +11,10 @@
 }
 
 BREW_API_BASE="${BREW_API_BASE:-https://formulae.brew.sh/api/formula}"
+BREW_SOURCE_BASE="${BREW_SOURCE_BASE:-https://raw.githubusercontent.com/Homebrew/homebrew-core/master}"
+
+# shellcheck source=download.sh
+source "$(dirname "${BASH_SOURCE[0]}")/download.sh"
 
 brew_die() {
     echo "[brew] $1" >&2
@@ -92,6 +96,7 @@ brew_source_of() {
             version: .versions.stable,
             url: .urls.stable.url,
             sha256: .urls.stable.checksum,
+            source_path: .ruby_source_path,
             patches: [$replayable[] | .sha256],
             unreplayable_patches: (((.patches // []) | length) - ($replayable | length))
         }' <<<"$json"
@@ -109,4 +114,25 @@ brew_siblings() {
         jq -r '.versioned_formulae[]?' <<<"$json"
         [[ "$base" != "$formula" ]] && brew_formula_json "$base" >/dev/null 2>&1 && printf '%s\n' "$base"
     } | sort -u
+}
+
+# Fingerprint of the build logic a formula describes: its file with the volatile
+# parts stripped, so a version bump or a bottle rebuild leaves it untouched while
+# a changed dependency, patch or install block moves it.
+# Usage: brew_formula_fingerprint <ruby-source-path>
+brew_formula_fingerprint() {
+    local path="$1" source
+
+    source=$(curl -fsSL --retry 3 --retry-delay 2 "${BREW_SOURCE_BASE}/${path}") \
+        || brew_die "cannot read formula source: $path" || return 1
+
+    # The nested `end` of a block inside livecheck is indented deeper, so the
+    # two-space one always closes the block being skipped.
+    awk '
+        /^  (bottle|livecheck) do$/ { skip = 1; next }
+        skip && /^  end$/           { skip = 0; next }
+        skip                        { next }
+        /^  (url|sha256|mirror|version|revision) / { next }
+        { print }
+    ' <<<"$source" | sha256_text
 }

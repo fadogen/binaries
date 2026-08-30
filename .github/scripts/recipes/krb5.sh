@@ -9,6 +9,10 @@ export PACKAGE_NAME="krb5"
 export PACKAGE_VERSION="1.22.2"
 export PACKAGE_SHA256="3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="1d85e0d26dc99d965d1d3e4408777e8395c664ccd860a8104b52b88eb2157d98"
+
 # Derived from version (URL uses major.minor in path)
 PACKAGE_VERSION_SHORT="${PACKAGE_VERSION%.*}"
 export PACKAGE_URL="https://kerberos.org/dist/${PACKAGE_NAME}/${PACKAGE_VERSION_SHORT}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"

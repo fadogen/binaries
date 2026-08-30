@@ -9,6 +9,10 @@ export PACKAGE_NAME="valkey"
 export PACKAGE_VERSION="9.1.1"
 export PACKAGE_SHA256="7d7232acd1b8a49b4e05d07a00b3ca8c801ae06ab633ca6a3423bc5f385ab7ee"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="d235e485f39b5ec38c2906ae82ec3b2e73b5cbacee831ff638a4824447ce0f74"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/valkey-io/${PACKAGE_NAME}/archive/refs/tags/${PACKAGE_VERSION}.tar.gz"
 

@@ -9,6 +9,10 @@ export PACKAGE_NAME="msgpack"
 export PACKAGE_VERSION="7.0.2"
 export PACKAGE_SHA256="6ae50f69612871aa01de76bec904165cd2a2fc30ff9f653f2f60a663c5c1a86c"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="8270e2dbf92bdc5c8602abc429a63534f6778248e81587252a5d43a479baabbe"
+
 # Derived from version (msgpack-c uses c-VERSION tag format)
 export PACKAGE_URL="https://github.com/msgpack/msgpack-c/releases/download/c-${PACKAGE_VERSION}/msgpack-c-${PACKAGE_VERSION}.tar.gz"
 

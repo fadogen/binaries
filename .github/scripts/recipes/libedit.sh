@@ -9,6 +9,10 @@ export PACKAGE_NAME="libedit"
 export PACKAGE_VERSION="20260512-3.1"
 export PACKAGE_SHA256="432d5e7ea8b0116dd39f2eca7bc11d0eed77faa6b77ea526ace89907c23ea4a0"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="2c7ea8e8a2f585aead6c43d3dd7389dbfe4d520b29952dec82b7becdaa8fda66"
+
 # Derived from version
 export PACKAGE_URL="https://thrysoee.dk/editline/libedit-${PACKAGE_VERSION}.tar.gz"
 

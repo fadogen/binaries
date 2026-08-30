@@ -9,6 +9,10 @@ export PACKAGE_NAME="readline"
 export PACKAGE_VERSION="8.3.3"
 export PACKAGE_SHA256="fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="639d7870259e2a72c9c26af07c32f603b6140505d72bfa0f2ef903960373a7a9"
+
 # Base version (without patch level)
 READLINE_BASE_VERSION="${PACKAGE_VERSION%.*}"
 

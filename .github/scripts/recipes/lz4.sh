@@ -9,6 +9,10 @@ export PACKAGE_NAME="lz4"
 export PACKAGE_VERSION="1.10.0"
 export PACKAGE_SHA256="537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="9d70c2a481a94f961772b89d4f8413a2fd01d471d5101855a37f1dfd360aa631"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/${PACKAGE_NAME}/${PACKAGE_NAME}/archive/refs/tags/v${PACKAGE_VERSION}.tar.gz"
 

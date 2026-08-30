@@ -9,6 +9,10 @@ export PACKAGE_NAME="openssl@3"
 export PACKAGE_VERSION="3.6.3"
 export PACKAGE_SHA256="243a86649cf6f23eeb6a2ff2456e09e5d77dd9018a54d3d96b0c6bdd6ba6c7f1"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="29fff4d75684fde29c4a072cb36d6305f4465500817badd934f750d246d49cef"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/openssl/openssl/releases/download/openssl-${PACKAGE_VERSION}/openssl-${PACKAGE_VERSION}.tar.gz"
 

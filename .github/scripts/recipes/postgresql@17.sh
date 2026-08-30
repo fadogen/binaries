@@ -9,6 +9,10 @@ export PACKAGE_NAME="postgresql@17"
 export PACKAGE_VERSION="17.11"
 export PACKAGE_SHA256="dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="18a73cc12c4f031428f018139a105c2baf68c01bd3c051369b98dfa1cceb29f4"
+
 # Derived from version
 export PACKAGE_URL="https://ftp.postgresql.org/pub/source/v${PACKAGE_VERSION}/postgresql-${PACKAGE_VERSION}.tar.bz2"
 

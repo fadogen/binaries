@@ -9,6 +9,10 @@ export PACKAGE_NAME="onigmo"
 export PACKAGE_VERSION="6.2.0"
 export PACKAGE_SHA256="c648496b5339953b925ebf44b8de356feda8d3428fa07dc1db95bfe2570feb76"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="26e4a1b04f1252d3f92d9e238dbe43bde6ee5f9f465c38a1a7714718c5314a09"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/k-takata/Onigmo/releases/download/Onigmo-${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 

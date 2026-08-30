@@ -13,6 +13,10 @@ NSS_VERSION_UNDERSCORED="${PACKAGE_VERSION//./_}"
 export PACKAGE_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_${NSS_VERSION_UNDERSCORED}_RTM/src/nss-${PACKAGE_VERSION}-with-nspr-${NSPR_VERSION}.tar.gz"
 export PACKAGE_SHA256="bfd84218ee9b0b24775723eb62bdf4590bf21a3818e8210d37de0b2c2db79750"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="044234997b2988dcc244527bfc5672bcae2d7785e706eaff3c99bd5b592f06ac"
+
 # The bundled tarball pins an NSPR version Mozilla picks at release time. It is
 # not the one Homebrew's nspr formula ships, so read it off the release index.
 # Called by sync-upstream.sh with the new NSS version.

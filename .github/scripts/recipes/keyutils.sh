@@ -10,6 +10,10 @@ export PACKAGE_NAME="keyutils"
 export PACKAGE_VERSION="1.6.3"
 export PACKAGE_SHA256="a61d5706136ae4c05bd48f86186bcfdbd88dd8bd5107e3e195c924cfc1b39bb4"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="1995a1d47d28ec97ca4b72c9f703651d6ae0e2afd4c36f8d742ce9fe0a83f49c"
+
 # Derived from version
 export PACKAGE_URL="https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 
