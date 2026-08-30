@@ -92,11 +92,15 @@ build() {
     # $(LD), which falls back to bare `ld` on Darwin and can't parse the
     # `-Wl,-headerpad_max_install_names` syntax in LDFLAGS. On Linux the
     # modules Makefile forces LD=gcc internally so this is a no-op there.
-    # No -j: it propagates through MAKEFLAGS down to the module builds, and
-    # RedisTimeSeries' vendored libevent races against itself, linking its
-    # samples before .libs/libevent.so exists. The formula does not parallelise
-    # this target either.
+    # SLOW=1 is readies' own switch for a sequential build, and it is needed:
+    # RedisTimeSeries builds a vendored libevent whose configure.rules hardcodes
+    # `make -j $(NPROC)`, regardless of the flags given here. That build is not
+    # parallel-safe, linking libevent's sample programs against
+    # .libs/libevent.so before the library exists. SLOW=1 sets NPROC=1 and
+    # empties MAKE_J, which serialises the module builds.
+    # No -j either, matching the formula, which does not parallelise deploy.
     MAKE="${MAKE_BIN}" "$MAKE_BIN" deploy \
+        SLOW=1 \
         PREFIX="${PREFIX}" \
         CC="${CC:-cc}" \
         LD="${CC:-cc}" \
