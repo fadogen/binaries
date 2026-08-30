@@ -7,11 +7,28 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="nss@3"
-export PACKAGE_VERSION="3.124"
+export PACKAGE_VERSION="3.128"
 NSPR_VERSION="4.39"
 NSS_VERSION_UNDERSCORED="${PACKAGE_VERSION//./_}"
 export PACKAGE_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_${NSS_VERSION_UNDERSCORED}_RTM/src/nss-${PACKAGE_VERSION}-with-nspr-${NSPR_VERSION}.tar.gz"
-export PACKAGE_SHA256="362de77e31a16e64be500a22980448c7f08e98dd8ab85c29d0c5e41d4df68d1c"
+export PACKAGE_SHA256="bfd84218ee9b0b24775723eb62bdf4590bf21a3818e8210d37de0b2c2db79750"
+
+# The bundled tarball pins an NSPR version Mozilla picks at release time. It is
+# not the one Homebrew's nspr formula ships, so read it off the release index.
+# Called by sync-upstream.sh with the new NSS version.
+upstream_extra() {
+    local version="$1"
+    local index="https://ftp.mozilla.org/pub/security/nss/releases/NSS_${version//./_}_RTM/src/"
+    local nspr
+
+    nspr="$(curl -fsSL --retry 3 --retry-delay 2 "$index" \
+        | grep -oE "nss-${version}-with-nspr-[0-9]+\.[0-9]+(\.[0-9]+)?\.tar\.gz" \
+        | head -1 \
+        | sed -E 's/.*with-nspr-([0-9.]+)\.tar\.gz/\1/')"
+
+    [[ -n "$nspr" ]] || return 1
+    echo "NSPR_VERSION=${nspr}"
+}
 
 # Runtime dependencies (none - NSPR built together with NSS via build.sh)
 export DEPENDENCIES=()

@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="attr"
-export PACKAGE_VERSION="2.5.2"
-export PACKAGE_SHA256="39bf67452fa41d0948c2197601053f48b3d78a029389734332a6309a680c6c87"
+export PACKAGE_VERSION="2.6.0"
+export PACKAGE_SHA256="d42fa374513180bb48cb11a46696f488240e5124ff1e6ad88b0abff706985612"
 
 # Derived from version
 export PACKAGE_URL="https://download.savannah.nongnu.org/releases/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"

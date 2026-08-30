@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="protobuf"
-export PACKAGE_VERSION="35.0"
-export PACKAGE_SHA256="8f907baca4b34a3b4854103ba5811e418fb6e2ff11fe0d8df9e8280b11d79926"
+export PACKAGE_VERSION="36.0"
+export PACKAGE_SHA256="399931c793f4ac6db81045b00b06dd07c877b48aeecf36c797f65c541fb533e7"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/protocolbuffers/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"

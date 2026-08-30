@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="postgresql@15"
-export PACKAGE_VERSION="15.18"
-export PACKAGE_SHA256="11df0df97fe3ea4ba9a791faaf39cee1d2fe571e78885b5b55d8517d27c323b4"
+export PACKAGE_VERSION="15.19"
+export PACKAGE_SHA256="e1a64a87a46b825b88c082e4518161a47aab53c45694964f8ba1df28f7859f89"
 
 # Derived from version
 export PACKAGE_URL="https://ftp.postgresql.org/pub/source/v${PACKAGE_VERSION}/postgresql-${PACKAGE_VERSION}.tar.bz2"

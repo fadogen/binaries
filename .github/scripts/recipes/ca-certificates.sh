@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="ca-certificates"
-export PACKAGE_VERSION="2026-05-14"
-export PACKAGE_SHA256="86a1f3366afac7c6f8ae9f3c779ac221129328c43f0ab2b8817eb2f362a5025c"
+export PACKAGE_VERSION="2026-08-13"
+export PACKAGE_SHA256="f66dff1bdf8f96060b8177976f8b7d9254bc89bc4db933d769f7384d28480bc9"
 
 # Derived from version
 export PACKAGE_URL="https://curl.se/ca/cacert-${PACKAGE_VERSION}.pem"
