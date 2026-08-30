@@ -110,3 +110,10 @@ teardown() {
     [ "$status" -eq 0 ]
     [ "$output" != "$unchanged" ]
 }
+
+@test "brew_source_of carries the licence expression" {
+    run brew_source_of redis
+
+    [ "$status" -eq 0 ]
+    [[ "$(printf '%s' "$output" | jq -r '.license')" == *"AGPL-3.0-only"* ]]
+}

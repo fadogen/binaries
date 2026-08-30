@@ -97,6 +97,7 @@ brew_source_of() {
             url: .urls.stable.url,
             sha256: .urls.stable.checksum,
             source_path: .ruby_source_path,
+            license: .license,
             patches: [$replayable[] | .sha256],
             unreplayable_patches: (((.patches // []) | length) - ($replayable | length))
         }' <<<"$json"

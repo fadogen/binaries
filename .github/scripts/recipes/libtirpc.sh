@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="libtirpc"
 export PACKAGE_VERSION="1.3.7"
 export PACKAGE_SHA256="b47d3ac19d3549e54a05d0019a6c400674da716123858cfdb6d3bdd70a66c702"
+export PACKAGE_LICENSE="BSD-3-Clause"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

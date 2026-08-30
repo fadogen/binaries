@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="pcre2"
 export PACKAGE_VERSION="10.47"
 export PACKAGE_SHA256="47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7"
+export PACKAGE_LICENSE="BSD-3-Clause"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

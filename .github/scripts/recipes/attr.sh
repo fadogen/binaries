@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="attr"
 export PACKAGE_VERSION="2.6.0"
 export PACKAGE_SHA256="d42fa374513180bb48cb11a46696f488240e5124ff1e6ad88b0abff706985612"
+export PACKAGE_LICENSE="GPL-2.0-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

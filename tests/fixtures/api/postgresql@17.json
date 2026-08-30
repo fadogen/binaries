@@ -19,5 +19,6 @@
     "postgresql@12"
   ],
   "aliases": [],
-  "patches": []
+  "patches": [],
+  "license": "PostgreSQL"
 }

@@ -20,5 +20,6 @@
   "aliases": [
     "mariadb@12.3"
   ],
-  "patches": []
+  "patches": [],
+  "license": "GPL-2.0-only"
 }

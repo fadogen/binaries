@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="libnsl"
 export PACKAGE_VERSION="2.0.1"
 export PACKAGE_SHA256="5c9e470b232a7acd3433491ac5221b4832f0c71318618dc6aa04dd05ffcd8fd9"
+export PACKAGE_LICENSE="LGPL-2.1-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

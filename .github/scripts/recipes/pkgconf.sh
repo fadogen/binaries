@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="pkgconf"
 export PACKAGE_VERSION="3.0.6"
 export PACKAGE_SHA256="c88a653fbabfa2a5857a30f6b6ad6c40dbacc3b7c72cc066e5c7dc4571cbddaa"
+export PACKAGE_LICENSE="ISC"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

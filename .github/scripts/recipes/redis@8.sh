@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="redis@8"
 export PACKAGE_VERSION="8.10.1"
 export PACKAGE_SHA256="60166c95ab7aedaa9dfe516de685be0a4dd87be95ded59ba429df14c13f1b663"
+export PACKAGE_LICENSE="AGPL-3.0-only AND Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT AND (CC0-1.0 OR BSD-2-Clause) AND (Artistic-1.0-Perl OR GPL-1.0-or-later)"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

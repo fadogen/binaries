@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="lz4"
 export PACKAGE_VERSION="1.10.0"
 export PACKAGE_SHA256="537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b"
+export PACKAGE_LICENSE="BSD-2-Clause"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

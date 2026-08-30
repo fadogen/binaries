@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="gettext"
 export PACKAGE_VERSION="1.0"
 export PACKAGE_SHA256="85d99b79c981a404874c02e0342176cf75c7698e2b51fe41031cf6526d974f1a"
+export PACKAGE_LICENSE="GPL-3.0-or-later AND LGPL-2.1-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="readline"
 export PACKAGE_VERSION="8.3.3"
 export PACKAGE_SHA256="fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc"
+export PACKAGE_LICENSE="GPL-3.0-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

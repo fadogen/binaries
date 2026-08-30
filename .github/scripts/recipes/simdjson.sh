@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="simdjson"
 export PACKAGE_VERSION="4.6.9"
 export PACKAGE_SHA256="b3954b7d6024eb5063c64e47be5ca09be04a3783563340400ce0aef416b20216"
+export PACKAGE_LICENSE="Apache-2.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

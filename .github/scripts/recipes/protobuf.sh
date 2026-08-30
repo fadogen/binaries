@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="protobuf"
 export PACKAGE_VERSION="36.0"
 export PACKAGE_SHA256="399931c793f4ac6db81045b00b06dd07c877b48aeecf36c797f65c541fb533e7"
+export PACKAGE_LICENSE="BSD-3-Clause"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

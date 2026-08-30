@@ -117,6 +117,19 @@ _sync_into() {
     fi
 }
 
+# Keep the recipe's licence expression in step with the formula, for recipes
+# that declare the field. Silent for those that do not.
+sync_license() {
+    local file="$1" source_json="$2" upstream
+
+    upstream="$(jq -r '.license // empty' <<<"$source_json")"
+    [[ -n "$upstream" ]] || return 0
+    [[ "$(recipe_field "$file" PACKAGE_LICENSE)" == "$upstream" ]] && return 0
+
+    recipe_set_field "$file" PACKAGE_LICENSE "$upstream" 2>/dev/null || return 0
+    log "$(basename "$file" .sh): licence recorded as ${upstream}"
+}
+
 # One report entry per recipe, as compact JSON.
 inspect_recipe() {
     local file="$1" command="$2"
@@ -132,6 +145,10 @@ inspect_recipe() {
             '{recipe: $recipe, formula: null, from: $from, to: null, status: "unresolved"}'
         return 0
     fi
+
+    # The licence is derived metadata, not a build input: it is kept in step
+    # whatever the version does, and never triggers a rebuild on its own.
+    sync_license "$file" "$source_json"
 
     if [[ "$local_version" == "$(jq -r '.version' <<<"$source_json")" ]]; then
         status="current"

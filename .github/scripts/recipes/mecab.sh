@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="mecab"
 export PACKAGE_VERSION="0.996"
 export PACKAGE_SHA256="e073325783135b72e666145c781bb48fada583d5224fb2490fb6c1403ba69c59"
+export PACKAGE_LICENSE="GPL-2.0-only OR LGPL-2.1-only OR BSD-3-Clause"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

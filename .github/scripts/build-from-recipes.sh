@@ -30,6 +30,8 @@ ARCH="${ARCH:-$(uname -m)}"
 source "${SCRIPT_DIR}/lib/colors.sh"
 source "${SCRIPT_DIR}/lib/download.sh"
 source "${SCRIPT_DIR}/lib/extract.sh"
+source "${SCRIPT_DIR}/lib/recipe.sh"
+source "${SCRIPT_DIR}/lib/provenance.sh"
 
 # Load platform-specific relocation functions
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -371,6 +373,20 @@ mkdir -p "$TEMP_BUNDLE"
 echo -e "${BLUE}→ Copying files from ${INSTALL_PREFIX}${NC}"
 cp -R "${INSTALL_PREFIX}/"* "$TEMP_BUNDLE/" || {
     echo -e "${RED}✗ Failed to copy files${NC}"
+    exit 1
+}
+
+# State where every component came from. The bundles carry copyleft components
+# whose licences require the recipient to be told where the source is.
+echo -e "${BLUE}→ Writing provenance notice...${NC}"
+PROVENANCE_RECIPES=("${RECIPES_DIR}/${PACKAGE}.sh")
+for pkg in "${BUILT_PACKAGES_ORDER[@]}"; do
+    [[ "$pkg" == "$PACKAGE" ]] && continue
+    PROVENANCE_RECIPES+=("${RECIPES_DIR}/${pkg}.sh")
+done
+provenance_write "$TEMP_BUNDLE" "${BASE_NAME} ${PKG_VERSION} (${OS_LOWER}/${ARCH})" \
+    "${PROVENANCE_RECIPES[@]}" || {
+    echo -e "${RED}✗ Failed to write the provenance notice${NC}"
     exit 1
 }
 

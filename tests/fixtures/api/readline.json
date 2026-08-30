@@ -31,5 +31,6 @@
       "sha256": "72dee13601ce38f6746eb15239999a7c56f8e1ff5eb1ec8153a1f213e4acdb29",
       "type": "cherry-pick"
     }
-  ]
+  ],
+  "license": "GPL-3.0-or-later"
 }

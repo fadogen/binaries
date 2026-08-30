@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="groonga"
 export PACKAGE_VERSION="16.1.0"
 export PACKAGE_SHA256="e10370308607bc7b499f0ab880c4f97dd2ad89f85edcf1d2b534e301ae3fb7b3"
+export PACKAGE_LICENSE="LGPL-2.1-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

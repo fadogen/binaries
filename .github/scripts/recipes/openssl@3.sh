@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="openssl@3"
 export PACKAGE_VERSION="3.6.3"
 export PACKAGE_SHA256="243a86649cf6f23eeb6a2ff2456e09e5d77dd9018a54d3d96b0c6bdd6ba6c7f1"
+export PACKAGE_LICENSE="Apache-2.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

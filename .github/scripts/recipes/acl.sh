@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="acl"
 export PACKAGE_VERSION="2.4.0"
 export PACKAGE_SHA256="73c853c3d44e1f693e5a96a986f1bd19d3d0dac2c7d453e796177774bc4e5f6a"
+export PACKAGE_LICENSE="GPL-2.0-or-later AND LGPL-2.1-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.
