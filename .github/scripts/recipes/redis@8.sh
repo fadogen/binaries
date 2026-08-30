@@ -70,15 +70,6 @@ build() {
             ;;
     esac
 
-    # Detect number of CPU cores (cross-platform)
-    if command -v nproc >/dev/null 2>&1; then
-        NPROC=$(nproc)
-    elif command -v sysctl >/dev/null 2>&1; then
-        NPROC=$(sysctl -n hw.ncpu)
-    else
-        NPROC=4
-    fi
-
     cd "${SOURCE_DIR}"
 
     # RediSearch sets CMAKE_CXX_STANDARD inside a function without PARENT_SCOPE,
@@ -101,7 +92,11 @@ build() {
     # $(LD), which falls back to bare `ld` on Darwin and can't parse the
     # `-Wl,-headerpad_max_install_names` syntax in LDFLAGS. On Linux the
     # modules Makefile forces LD=gcc internally so this is a no-op there.
-    MAKE="${MAKE_BIN}" "$MAKE_BIN" -j"${NPROC}" deploy \
+    # No -j: it propagates through MAKEFLAGS down to the module builds, and
+    # RedisTimeSeries' vendored libevent races against itself, linking its
+    # samples before .libs/libevent.so exists. The formula does not parallelise
+    # this target either.
+    MAKE="${MAKE_BIN}" "$MAKE_BIN" deploy \
         PREFIX="${PREFIX}" \
         CC="${CC:-cc}" \
         LD="${CC:-cc}" \
