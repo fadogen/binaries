@@ -175,6 +175,11 @@ build() {
         -DWITH_ZLIB=system
         -DWITH_ZSTD=system
         -DWITH_UNIT_TESTS=OFF
+        # 9.7 builds a telemetry client from vendored sources the release
+        # tarball does not carry: extra/json, extra/opentelemetry-{proto,cpp}.
+        # The formula turns both telemetry plugins off for the same reason.
+        -DWITH_MYSQL_SERVER_TELEMETRY=OFF
+        -DWITH_MYSQL_CLIENT_TELEMETRY=OFF
     )
 
     # Platform-specific CMake args
