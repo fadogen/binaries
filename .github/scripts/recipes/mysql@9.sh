@@ -9,6 +9,10 @@ export PACKAGE_NAME="mysql@9"
 export PACKAGE_VERSION="9.7.2"
 export PACKAGE_SHA256="e5a676c7cb73738dc6ea33db2093806ebd512b629a139b897fcab68fcd81aaa4"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="d17b9ef35f9e5293720aee205475a74e31013e3e622ed837ce401901e63bff40"
+
 # Derived from version (major.minor for download path)
 MYSQL_MAJOR_MINOR="${PACKAGE_VERSION%.*}"
 export PACKAGE_URL="https://cdn.mysql.com/Downloads/MySQL-${MYSQL_MAJOR_MINOR}/mysql-${PACKAGE_VERSION}.tar.gz"

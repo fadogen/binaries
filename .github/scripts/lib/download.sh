@@ -11,6 +11,15 @@ sha256_file() {
     fi
 }
 
+# Hash whatever arrives on stdin.
+sha256_text() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | awk '{print $1}'
+    else
+        shasum -a 256 | awk '{print $1}'
+    fi
+}
+
 # Hash the artefact served at a URL without keeping it on disk.
 # Usage: sha256_of_url <url>
 sha256_of_url() {

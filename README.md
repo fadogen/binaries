@@ -32,6 +32,28 @@ bundled NSPR tarball, gets its checksum recomputed from the artefact it really
 downloads. When that URL needs more than a version number, the recipe defines an
 `upstream_extra` hook that resolves the missing fields itself.
 
+### Keeping up with the formula itself, not just its version
+
+A recipe transposes a formula's build logic by hand. When Homebrew changes that
+logic without changing the version, adding a dependency, a patch, or a step in
+`install`, nothing about the version tells you.
+
+Each recipe therefore carries `BREW_FORMULA_REVIEWED`, a fingerprint of the
+formula file with the volatile parts stripped out: the `bottle` block, the
+`livecheck` block, and the source coordinates the sync already tracks. A version
+bump or a bottle rebuild leaves that fingerprint alone; a changed `depends_on`,
+`patch` or `install` block moves it.
+
+When it moves, the run summary links to the formula history. Read the diff, carry
+over what matters into `build()`, then record that you have looked:
+
+```bash
+.github/scripts/sync-upstream.sh review redis@8
+```
+
+The version keeps being synced in the meantime. A build-logic change must never
+strand a security fix behind a review.
+
 ### What the sync will not decide for you
 
 - A new major line, `postgresql@19` say, is reported in the job summary, never

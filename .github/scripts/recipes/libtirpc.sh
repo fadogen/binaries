@@ -9,6 +9,10 @@ export PACKAGE_NAME="libtirpc"
 export PACKAGE_VERSION="1.3.7"
 export PACKAGE_SHA256="b47d3ac19d3549e54a05d0019a6c400674da716123858cfdb6d3bdd70a66c702"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="aca9e586b86db132530a44fb5b70f354faee7838ff790c44d505ae468b5b082e"
+
 # Derived from version
 export PACKAGE_URL="https://downloads.sourceforge.net/project/${PACKAGE_NAME}/${PACKAGE_NAME}/${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.bz2"
 

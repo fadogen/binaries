@@ -8,6 +8,7 @@ set -euo pipefail
 #
 #   sync-upstream.sh check           Report drift, write nothing.
 #   sync-upstream.sh apply           Report drift and rewrite the outdated recipes.
+#   sync-upstream.sh review <recipe> Mark the formula's build logic as reviewed.
 #   sync-upstream.sh summary         Markdown digest of a report read on stdin.
 #   sync-upstream.sh commit-message  Commit message for a report read on stdin.
 #   sync-upstream.sh commit          Commit the synced recipes, if any changed.
@@ -141,6 +142,15 @@ inspect_recipe() {
         status="outdated"
     fi
 
+    # A recipe transposes the formula's build logic by hand. When that logic
+    # moves, the version sync alone is no longer enough and a human has to look.
+    local reviewed current_fingerprint formula_changed=false
+    reviewed="$(recipe_field "$file" BREW_FORMULA_REVIEWED)"
+    if [[ -n "$reviewed" ]]; then
+        current_fingerprint="$(brew_formula_fingerprint "$(jq -r '.source_path' <<<"$source_json")" 2>/dev/null)" || current_fingerprint=""
+        [[ -n "$current_fingerprint" && "$current_fingerprint" != "$reviewed" ]] && formula_changed=true
+    fi
+
     # Patches upstream applies that this recipe does not: either they cannot be
     # fetched, or the recipe declares no checksum array to replay them into.
     local not_replayed
@@ -155,6 +165,7 @@ inspect_recipe() {
         --arg from "$local_version" \
         --arg status "$status" \
         --argjson not_replayed "$not_replayed" \
+        --argjson formula_changed "$formula_changed" \
         --argjson upstream "$source_json" \
         '{
             recipe: $recipe,
@@ -162,7 +173,9 @@ inspect_recipe() {
             from: $from,
             to: $upstream.version,
             status: $status,
-            patches_not_replayed: $not_replayed
+            patches_not_replayed: $not_replayed,
+            formula_changed: $formula_changed,
+            formula_path: $upstream.source_path
         }'
 }
 
@@ -188,6 +201,24 @@ new_lines_for() {
         (( theirs > mine )) && printf '%s %s %s\n' "$package" "$theirs" "$sibling"
     done < <(brew_siblings "$formula" 2>/dev/null)
     return 0
+}
+
+# Record that a human has read the formula as it stands today and carried over
+# whatever mattered. Until then the sync keeps asking.
+# Usage: review <recipe>
+review_recipe() {
+    local recipe="${1:-}" file formula fingerprint
+
+    [[ -n "$recipe" ]] || { echo "usage: $(basename "$0") review <recipe>" >&2; return 2; }
+
+    file="${RECIPES_DIR}/${recipe}.sh"
+    [[ -f "$file" ]] || { echo "[sync] no such recipe: $recipe" >&2; return 1; }
+
+    formula="$(brew_resolve_formula "$recipe")" || return 1
+    fingerprint="$(brew_formula_fingerprint "$(brew_source_of "$formula" | jq -r '.source_path')")" || return 1
+
+    recipe_set_field "$file" BREW_FORMULA_REVIEWED "$fingerprint" || return 1
+    log "${recipe}: reviewed against ${formula} as it stands today"
 }
 
 # Commit message for a sync, read from a report on stdin.
@@ -244,6 +275,11 @@ summary() {
            else "", "**unresolved**, no Homebrew formula serves these lines:",
                 ($o[] | "- \(.recipe) (pinned at \(.from))")
            end),
+        ([.recipes[] | select(.formula_changed == true)] as $c
+         | if ($c | length) == 0 then empty
+           else "", "Formulae whose build logic moved since it was transposed. Review, adjust `build()` if needed, then `sync-upstream.sh review <recipe>`:",
+                ($c[] | "- \(.recipe): https://github.com/Homebrew/homebrew-core/commits/master/\(.formula_path)")
+           end),
         ([.recipes[] | select((.patches_not_replayed // 0) > 0)] as $d
          | if ($d | length) == 0 then empty
            else "", "Recipes building the plain tarball while Homebrew patches it:",
@@ -260,11 +296,12 @@ main() {
 
     case "$command" in
         check|apply) ;;
+        review) shift; review_recipe "$@"; return $? ;;
         commit-message) commit_message; return 0 ;;
         commit) commit_sync; return 0 ;;
         summary) summary; return 0 ;;
         *)
-            echo "usage: $(basename "$0") {check|apply|commit|commit-message|summary}" >&2
+            echo "usage: $(basename "$0") {check|apply|review <recipe>|commit|commit-message|summary}" >&2
             return 2
             ;;
     esac

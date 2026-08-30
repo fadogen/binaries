@@ -9,6 +9,10 @@ export PACKAGE_NAME="mariadb@12"
 export PACKAGE_VERSION="12.3.3"
 export PACKAGE_SHA256="e99d739fd4a55f9a11dea7bd2287a262673e287550af3071c8469dd2bec0c163"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="cce22437656f81a21c5061a62d1c3f676f8c205237f401d1cd8f159dd0a315f6"
+
 # Derived from version
 export PACKAGE_URL="https://archive.mariadb.org/mariadb-${PACKAGE_VERSION}/source/mariadb-${PACKAGE_VERSION}.tar.gz"
 

@@ -9,6 +9,10 @@ export PACKAGE_NAME="pcre2"
 export PACKAGE_VERSION="10.47"
 export PACKAGE_SHA256="47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="b469d38bf6abd31a1ccd8ce940fd4a416df4eb5df3da1d215066e7f85b99d7a8"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/PCRE2Project/${PACKAGE_NAME}/releases/download/${PACKAGE_NAME}-${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.bz2"
 

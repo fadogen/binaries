@@ -9,6 +9,10 @@ export PACKAGE_NAME="icu4c@78"
 export PACKAGE_VERSION="78.3"
 export PACKAGE_SHA256="3a2e7a47604ba702f345878308e6fefeca612ee895cf4a5f222e7955fabfe0c0"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="b3698f178979a9b35db95bb2088b27552cc517a42616219012893fa4cf6cac4c"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/unicode-org/icu/releases/download/release-${PACKAGE_VERSION}/icu4c-${PACKAGE_VERSION}-sources.tgz"
 

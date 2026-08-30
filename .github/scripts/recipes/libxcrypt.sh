@@ -9,6 +9,10 @@ export PACKAGE_NAME="libxcrypt"
 export PACKAGE_VERSION="4.5.2"
 export PACKAGE_SHA256="71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="332369422c4d01628ca9d8ccce1847e360e8642a45cd1d1ddcd79ac58d42c96e"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/besser82/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.xz"
 

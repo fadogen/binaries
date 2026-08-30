@@ -9,6 +9,10 @@ export PACKAGE_NAME="xz"
 export PACKAGE_VERSION="5.8.3"
 export PACKAGE_SHA256="3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="352af47a61055c80a20767c92100f817cf9f930b3b82cf16e24ad81747308558"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/tukaani-project/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 

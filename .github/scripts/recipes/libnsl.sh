@@ -9,6 +9,10 @@ export PACKAGE_NAME="libnsl"
 export PACKAGE_VERSION="2.0.1"
 export PACKAGE_SHA256="5c9e470b232a7acd3433491ac5221b4832f0c71318618dc6aa04dd05ffcd8fd9"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="b2616489bc18557917d483fddefcd26590974ecde33de86c877ad80faab0f94f"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/thkukuk/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.xz"
 

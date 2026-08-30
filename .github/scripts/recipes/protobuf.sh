@@ -9,6 +9,10 @@ export PACKAGE_NAME="protobuf"
 export PACKAGE_VERSION="36.0"
 export PACKAGE_SHA256="399931c793f4ac6db81045b00b06dd07c877b48aeecf36c797f65c541fb533e7"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="c5722e30cf2d7e62cef205c279936684ca77a773654170c0e09639f7abd400b7"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/protocolbuffers/${PACKAGE_NAME}/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 

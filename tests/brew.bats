@@ -86,3 +86,27 @@ teardown() {
     [ "$(printf '%s' "$output" | jq -r '.patches | length')" -eq 0 ]
     [ "$(printf '%s' "$output" | jq -r '.unreplayable_patches')" -eq 4 ]
 }
+
+@test "brew_formula_fingerprint ignores a version bump" {
+    export BREW_SOURCE_BASE="file://${FIXTURES_DIR}/formula-source"
+
+    run brew_formula_fingerprint "redis-8.10.0.rb"
+    [ "$status" -eq 0 ]
+    local before="$output"
+
+    run brew_formula_fingerprint "redis-8.10.1.rb"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$before" ]
+}
+
+@test "brew_formula_fingerprint moves when the build logic does" {
+    export BREW_SOURCE_BASE="file://${FIXTURES_DIR}/formula-source"
+
+    run brew_formula_fingerprint "redis-8.10.1.rb"
+    local unchanged="$output"
+
+    # Same upstream version, but Homebrew started building the modules.
+    run brew_formula_fingerprint "redis-build-modules.rb"
+    [ "$status" -eq 0 ]
+    [ "$output" != "$unchanged" ]
+}

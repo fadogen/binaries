@@ -9,6 +9,10 @@ export PACKAGE_NAME="zstd"
 export PACKAGE_VERSION="1.5.7"
 export PACKAGE_SHA256="37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="7ee9615d4d8cf2bdd70aed50269cb65915e4a1cd46a3fada64b5a40f22c0ef17"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/facebook/${PACKAGE_NAME}/archive/refs/tags/v${PACKAGE_VERSION}.tar.gz"
 

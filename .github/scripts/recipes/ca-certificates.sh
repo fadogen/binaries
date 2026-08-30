@@ -9,6 +9,10 @@ export PACKAGE_NAME="ca-certificates"
 export PACKAGE_VERSION="2026-08-13"
 export PACKAGE_SHA256="f66dff1bdf8f96060b8177976f8b7d9254bc89bc4db933d769f7384d28480bc9"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="99f2408cc87f936dbe810712da582e51abbaa02b7d689777bd0b2b488d7dcd8f"
+
 # Derived from version
 export PACKAGE_URL="https://curl.se/ca/cacert-${PACKAGE_VERSION}.pem"
 

@@ -9,6 +9,10 @@ export PACKAGE_NAME="gettext"
 export PACKAGE_VERSION="1.0"
 export PACKAGE_SHA256="85d99b79c981a404874c02e0342176cf75c7698e2b51fe41031cf6526d974f1a"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="041274023071a8b9fa38a9f555dce181262499672614223b65bed396b9463f05"
+
 # Derived from version
 export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 

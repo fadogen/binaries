@@ -9,6 +9,10 @@ export PACKAGE_NAME="redis@8"
 export PACKAGE_VERSION="8.10.1"
 export PACKAGE_SHA256="60166c95ab7aedaa9dfe516de685be0a4dd87be95ded59ba429df14c13f1b663"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="79415aa261b0a2755036cb49910bd7765271ab91ffaad5e26c8544bc948ca7d4"
+
 # Derived from version
 export PACKAGE_URL="https://download.redis.io/releases/redis-${PACKAGE_VERSION}.tar.gz"
 

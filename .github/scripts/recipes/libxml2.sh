@@ -9,6 +9,10 @@ export PACKAGE_NAME="libxml2"
 export PACKAGE_VERSION="2.15.3"
 export PACKAGE_SHA256="78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="477fb4493d597ae0decb2e776392a720830f43e053b64af7b5d672b3eae1afd8"
+
 # Derived from version
 LIBXML2_MAJOR_MINOR="${PACKAGE_VERSION%.*}"
 export PACKAGE_URL="https://download.gnome.org/sources/${PACKAGE_NAME}/${LIBXML2_MAJOR_MINOR}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.xz"

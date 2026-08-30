@@ -9,6 +9,10 @@ export PACKAGE_NAME="mecab-ipadic"
 export PACKAGE_VERSION="2.7.0-20070801"
 export PACKAGE_SHA256="b62f527d881c504576baed9c6ef6561554658b175ce6ae0096a60307e49e3523"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="e74ed732936df7748730816742a39ff808fbe548335a01ba37a2ccaf28dda120"
+
 # Derived from version (Debian pool format)
 export PACKAGE_URL="https://deb.debian.org/debian/pool/main/m/${PACKAGE_NAME}/${PACKAGE_NAME}_${PACKAGE_VERSION}+main.orig.tar.gz"
 

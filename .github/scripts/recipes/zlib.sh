@@ -9,6 +9,10 @@ export PACKAGE_NAME="zlib"
 export PACKAGE_VERSION="1.3.2"
 export PACKAGE_SHA256="bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="513e21e1bdd4404e4b45e2924f91a0d2eaf46cb34966dccd636b51525be80b84"
+
 # Derived from version
 export PACKAGE_URL="https://zlib.net/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 

@@ -9,6 +9,10 @@ export PACKAGE_NAME="simdjson"
 export PACKAGE_VERSION="4.6.9"
 export PACKAGE_SHA256="b3954b7d6024eb5063c64e47be5ca09be04a3783563340400ce0aef416b20216"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="bb3f0ca4d250e35381b7d68ea5362a7b7df535f1100b8edc688b167fdb2f8a2e"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/simdjson/simdjson/archive/refs/tags/v${PACKAGE_VERSION}.tar.gz"
 

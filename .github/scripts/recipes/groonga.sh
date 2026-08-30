@@ -9,6 +9,10 @@ export PACKAGE_NAME="groonga"
 export PACKAGE_VERSION="16.1.0"
 export PACKAGE_SHA256="e10370308607bc7b499f0ab880c4f97dd2ad89f85edcf1d2b534e301ae3fb7b3"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="cf8770a0a1cbc9147809b85464922eea0de9253152f3652af5df0090c1be0bab"
+
 # Derived from version
 export PACKAGE_URL="https://github.com/groonga/groonga/releases/download/v${PACKAGE_VERSION}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 

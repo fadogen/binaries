@@ -9,6 +9,10 @@ export PACKAGE_NAME="pkgconf"
 export PACKAGE_VERSION="3.0.6"
 export PACKAGE_SHA256="c88a653fbabfa2a5857a30f6b6ad6c40dbacc3b7c72cc066e5c7dc4571cbddaa"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="5c7d95eafef27248763012aef30c6faa2bf0bd59f4bd76294558287b5932b576"
+
 # Derived from version
 export PACKAGE_URL="https://distfiles.ariadne.space/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.xz"
 

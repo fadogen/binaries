@@ -9,6 +9,10 @@ export PACKAGE_NAME="acl"
 export PACKAGE_VERSION="2.4.0"
 export PACKAGE_SHA256="73c853c3d44e1f693e5a96a986f1bd19d3d0dac2c7d453e796177774bc4e5f6a"
 
+# Fingerprint of the Homebrew formula this recipe was transposed from.
+# sync-upstream.sh reports when the formula's build logic moves past it.
+export BREW_FORMULA_REVIEWED="740cc53275ca9b48b0ce3d21254b00bec0933757625eab61083673f3808a8c59"
+
 # Derived from version
 export PACKAGE_URL="https://download.savannah.nongnu.org/releases/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 
