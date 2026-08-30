@@ -1,13 +1,13 @@
 #!/bin/bash
-# Build recipe for mariadb@10.11
+# Build recipe for mariadb@11.8
 # Description: Drop-in replacement for MySQL
 
 set -e
 
 # Metadata
-export PACKAGE_NAME="mariadb@10.11"
-export PACKAGE_VERSION="10.11.17"
-export PACKAGE_SHA256="2c54afc85e5f592efcec19042fb0baec8de0332bd3da55b4418fe2bfdf343de4"
+export PACKAGE_NAME="mariadb@11"
+export PACKAGE_VERSION="11.8.9"
+export PACKAGE_SHA256="2e015b7e91004142eda8b3a20d3ceb875cf2ae55e72603e7222cd497d4e56fc6"
 
 # Derived from version
 export PACKAGE_URL="https://archive.mariadb.org/mariadb-${PACKAGE_VERSION}/source/mariadb-${PACKAGE_VERSION}.tar.gz"
@@ -106,22 +106,6 @@ build() {
 
     cd "${SOURCE_DIR}"
 
-    # Fix ColumnStore CMakeLists.txt for CMake 4.x compatibility (as per Homebrew formula)
-    if [ -f "storage/columnstore/columnstore/CMakeLists.txt" ]; then
-        case "$OS_NAME" in
-            Darwin)
-                sed -i.bak 's/CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)/CMAKE_MINIMUM_REQUIRED(VERSION 3.10)/' \
-                    storage/columnstore/columnstore/CMakeLists.txt
-                rm -f storage/columnstore/columnstore/CMakeLists.txt.bak
-                ;;
-            *)
-                sed -i 's/CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)/CMAKE_MINIMUM_REQUIRED(VERSION 3.10)/' \
-                    storage/columnstore/columnstore/CMakeLists.txt
-                ;;
-        esac
-        echo "✓ Patched ColumnStore CMakeLists.txt for CMake 4.x"
-    fi
-
     # Fix mysql_install_db.sh to use our prefix
     echo "→ Patching mysql_install_db.sh..."
     case "$OS_NAME" in
@@ -139,6 +123,8 @@ build() {
     # Remove bundled libraries (as per Homebrew formula)
     echo "→ Removing bundled libraries..."
     rm -rf storage/mroonga/vendor/groonga
+    rm -rf extra/wolfssl
+    rm -rf zlib
     echo "✓ Bundled libraries cleaned"
 
     # Determine library extension
@@ -172,7 +158,9 @@ build() {
         -DPLUGIN_PROVIDER_SNAPPY=NO
         -DWITH_ROCKSDB_Snappy=OFF
         -DWITH_LIBFMT=system
+        -DWITH_PCRE=system
         -DWITH_SSL=system
+        -DWITH_ZLIB=system
         -DWITH_UNIT_TESTS=OFF
         -DDEFAULT_CHARSET=utf8mb4
         -DDEFAULT_COLLATION=utf8mb4_general_ci
@@ -181,10 +169,7 @@ build() {
     # Platform-specific CMake args
     case "$OS_NAME" in
         Darwin)
-            # Disable RocksDB on Apple Silicon (currently not supported)
-            if [ "$(uname -m)" = "arm64" ]; then
-                CMAKE_ARGS+=(-DPLUGIN_ROCKSDB=NO)
-            fi
+            # macOS: nothing extra needed
             ;;
         *)
             # Linux-specific args (from Homebrew formula)
@@ -211,8 +196,6 @@ build() {
     cmake --install build
 
     # Save space: remove test and benchmark directories (as per Homebrew formula)
-    # Note: 10.11 uses mysql-test instead of mariadb-test
-    rm -rf "${PREFIX}/mysql-test"
     rm -rf "${PREFIX}/mariadb-test"
     rm -rf "${PREFIX}/sql-bench"
 
