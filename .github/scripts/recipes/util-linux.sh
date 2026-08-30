@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="util-linux"
-export PACKAGE_VERSION="2.42.1"
-export PACKAGE_SHA256="82e9158eb12a9b0b569d84e1687fed9dd18fe89ccd8ef5ac3427218a7c0d7f7f"
+export PACKAGE_VERSION="2.42.2"
+export PACKAGE_SHA256="03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a"
 
 # Major.minor for URL path
 UTIL_LINUX_MAJOR_MINOR="${PACKAGE_VERSION%.*}"

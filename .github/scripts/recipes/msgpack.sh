@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="msgpack"
-export PACKAGE_VERSION="6.1.0"
-export PACKAGE_SHA256="674119f1a85b5f2ecc4c7d5c2859edf50c0b05e0c10aa0df85eefa2c8c14b796"
+export PACKAGE_VERSION="7.0.2"
+export PACKAGE_SHA256="6ae50f69612871aa01de76bec904165cd2a2fc30ff9f653f2f60a663c5c1a86c"
 
 # Derived from version (msgpack-c uses c-VERSION tag format)
 export PACKAGE_URL="https://github.com/msgpack/msgpack-c/releases/download/c-${PACKAGE_VERSION}/msgpack-c-${PACKAGE_VERSION}.tar.gz"

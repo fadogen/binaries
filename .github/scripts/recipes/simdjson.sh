@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="simdjson"
-export PACKAGE_VERSION="4.6.4"
-export PACKAGE_SHA256="b091107844fe928158c5c2265c20360fff312889ddf7ebc4528a0f0f8f2ff9cd"
+export PACKAGE_VERSION="4.6.9"
+export PACKAGE_SHA256="b3954b7d6024eb5063c64e47be5ca09be04a3783563340400ce0aef416b20216"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/simdjson/simdjson/archive/refs/tags/v${PACKAGE_VERSION}.tar.gz"

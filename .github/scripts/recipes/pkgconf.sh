@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="pkgconf"
-export PACKAGE_VERSION="2.5.1"
-export PACKAGE_SHA256="cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243"
+export PACKAGE_VERSION="3.0.6"
+export PACKAGE_SHA256="c88a653fbabfa2a5857a30f6b6ad6c40dbacc3b7c72cc066e5c7dc4571cbddaa"
 
 # Derived from version
 export PACKAGE_URL="https://distfiles.ariadne.space/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.xz"
