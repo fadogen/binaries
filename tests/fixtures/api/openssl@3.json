@@ -40,5 +40,6 @@
       "file": "Patches/openssl/cffb97915813aeeef58ee9a0d33c05d3d45e1fe6.patch",
       "type": "backport"
     }
-  ]
+  ],
+  "license": "Apache-2.0"
 }

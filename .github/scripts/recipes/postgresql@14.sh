@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="postgresql@14"
 export PACKAGE_VERSION="14.24"
 export PACKAGE_SHA256="a7fa7ed3d558172355f51406097a7bd4f6b473be80f311ef7cda96bf383d8897"
+export PACKAGE_LICENSE="PostgreSQL"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

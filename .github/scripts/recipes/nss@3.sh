@@ -12,6 +12,7 @@ NSPR_VERSION="4.39"
 NSS_VERSION_UNDERSCORED="${PACKAGE_VERSION//./_}"
 export PACKAGE_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_${NSS_VERSION_UNDERSCORED}_RTM/src/nss-${PACKAGE_VERSION}-with-nspr-${NSPR_VERSION}.tar.gz"
 export PACKAGE_SHA256="bfd84218ee9b0b24775723eb62bdf4590bf21a3818e8210d37de0b2c2db79750"
+export PACKAGE_LICENSE="MPL-2.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="xz"
 export PACKAGE_VERSION="5.8.3"
 export PACKAGE_SHA256="3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0"
+export PACKAGE_LICENSE="0BSD AND GPL-2.0-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

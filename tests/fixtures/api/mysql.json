@@ -23,5 +23,6 @@
       "strip": "p1",
       "data": true
     }
-  ]
+  ],
+  "license": "GPL-2.0-only WITH Universal-FOSS-exception-1.0"
 }

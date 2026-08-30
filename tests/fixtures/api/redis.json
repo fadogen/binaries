@@ -18,5 +18,6 @@
     "redis@8.10"
   ],
   "patches": [],
-  "ruby_source_path": "redis-8.10.1.rb"
+  "ruby_source_path": "redis-8.10.1.rb",
+  "license": "AGPL-3.0-only AND Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT AND (CC0-1.0 OR BSD-2-Clause) AND (Artistic-1.0-Perl OR GPL-1.0-or-later)"
 }

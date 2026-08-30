@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="lzo"
 export PACKAGE_VERSION="2.10"
 export PACKAGE_SHA256="c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072"
+export PACKAGE_LICENSE="GPL-2.0-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

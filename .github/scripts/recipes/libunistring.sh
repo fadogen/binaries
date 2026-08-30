@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="libunistring"
 export PACKAGE_VERSION="1.4.2"
 export PACKAGE_SHA256="e82664b170064e62331962126b259d452d53b227bb4a93ab20040d846fec01d8"
+export PACKAGE_LICENSE="GPL-2.0-or-later OR LGPL-3.0-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="abseil"
 export PACKAGE_VERSION="20260817.0"
 export PACKAGE_SHA256="f7e05179df39c45434cad433f5783840bb3788ef322976f9138bc6b72b3a107d"
+export PACKAGE_LICENSE="Apache-2.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

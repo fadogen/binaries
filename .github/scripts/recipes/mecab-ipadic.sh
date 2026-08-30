@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="mecab-ipadic"
 export PACKAGE_VERSION="2.7.0-20070801"
 export PACKAGE_SHA256="b62f527d881c504576baed9c6ef6561554658b175ce6ae0096a60307e49e3523"
+export PACKAGE_LICENSE="NAIST-2003"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="icu4c@78"
 export PACKAGE_VERSION="78.3"
 export PACKAGE_SHA256="3a2e7a47604ba702f345878308e6fefeca612ee895cf4a5f222e7955fabfe0c0"
+export PACKAGE_LICENSE="Unicode-3.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

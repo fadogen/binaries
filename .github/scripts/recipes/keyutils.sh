@@ -9,6 +9,7 @@ set -e
 export PACKAGE_NAME="keyutils"
 export PACKAGE_VERSION="1.6.3"
 export PACKAGE_SHA256="a61d5706136ae4c05bd48f86186bcfdbd88dd8bd5107e3e195c924cfc1b39bb4"
+export PACKAGE_LICENSE="GPL-2.0-or-later AND LGPL-2.0-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="linux-pam"
 export PACKAGE_VERSION="1.7.2"
 export PACKAGE_SHA256="3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a"
+export PACKAGE_LICENSE="BSD-3-Clause OR GPL-1.0-only"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

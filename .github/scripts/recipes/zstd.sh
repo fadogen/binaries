@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="zstd"
 export PACKAGE_VERSION="1.5.7"
 export PACKAGE_SHA256="37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3"
+export PACKAGE_LICENSE="(BSD-3-Clause OR GPL-2.0-only) AND BSD-2-Clause AND MIT"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

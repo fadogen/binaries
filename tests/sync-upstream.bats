@@ -360,3 +360,22 @@ RECIPE
     [ "$status" -eq 0 ]
     [ "$(jq -r '.recipes[0].formula_changed' <<<"$output")" = "false" ]
 }
+
+@test "apply fills in the licence even when the version is already current" {
+    cat > "${RECIPES_DIR}/redis@8.sh" <<'RECIPE'
+#!/bin/bash
+export PACKAGE_NAME="redis@8"
+export PACKAGE_VERSION="8.10.1"
+export PACKAGE_SHA256="60166c95ab7aedaa9dfe516de685be0a4dd87be95ded59ba429df14c13f1b663"
+export PACKAGE_LICENSE=""
+export PACKAGE_URL="https://download.redis.io/releases/redis-${PACKAGE_VERSION}.tar.gz"
+RECIPE
+
+    run --separate-stderr "$SYNC" apply
+    [ "$status" -eq 0 ]
+    # Licence is derived metadata, not a reason to rebuild.
+    [ "$(jq -r '.recipes[0].status' <<<"$output")" = "current" ]
+
+    source "${LIB_DIR}/recipe.sh"
+    [[ "$(recipe_field "${RECIPES_DIR}/redis@8.sh" PACKAGE_LICENSE)" == *"AGPL-3.0-only"* ]]
+}

@@ -22,5 +22,6 @@
     "postgres",
     "postgresql"
   ],
-  "patches": []
+  "patches": [],
+  "license": "PostgreSQL"
 }

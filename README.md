@@ -63,6 +63,18 @@ strand a security fix behind a review.
 - A recipe whose line no longer exists upstream is reported as unresolved and
   left alone.
 
+## Provenance
+
+Every bundle carries a `PROVENANCE.txt` listing each component it was built
+from: version, licence, source archive and SHA-256 checksum. Several of these
+components are copyleft, Redis and MariaDB among them, and their licences
+require whoever receives the binary to be told where the corresponding source
+is. Nothing here is built from modified sources, so naming the exact upstream
+archive and its checksum answers that.
+
+The licence expressions come from the same place as the versions: the sync
+records `PACKAGE_LICENSE` from the formula, whether or not the version moved.
+
 ## Tests
 
 ```bash

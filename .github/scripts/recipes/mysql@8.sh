@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="mysql@8"
 export PACKAGE_VERSION="8.4.11"
 export PACKAGE_SHA256="eb3051164d625dd346a8203f76e0d5d5d9aec51dbe9d51788e39ec6b3f1394c2"
+export PACKAGE_LICENSE="GPL-2.0-only WITH Universal-FOSS-exception-1.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

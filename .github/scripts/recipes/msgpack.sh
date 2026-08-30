@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="msgpack"
 export PACKAGE_VERSION="7.0.2"
 export PACKAGE_SHA256="6ae50f69612871aa01de76bec904165cd2a2fc30ff9f653f2f60a663c5c1a86c"
+export PACKAGE_LICENSE="BSL-1.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

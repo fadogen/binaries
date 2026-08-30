@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="valkey"
 export PACKAGE_VERSION="9.1.1"
 export PACKAGE_SHA256="7d7232acd1b8a49b4e05d07a00b3ca8c801ae06ab633ca6a3423bc5f385ab7ee"
+export PACKAGE_LICENSE="BSD-3-Clause AND BSD-2-Clause AND BSL-1.0 AND MIT AND (CC0-1.0 OR BSD-2-Clause)"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

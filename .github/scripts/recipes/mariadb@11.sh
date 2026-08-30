@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="mariadb@11"
 export PACKAGE_VERSION="11.8.9"
 export PACKAGE_SHA256="2e015b7e91004142eda8b3a20d3ceb875cf2ae55e72603e7222cd497d4e56fc6"
+export PACKAGE_LICENSE="GPL-2.0-only"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.

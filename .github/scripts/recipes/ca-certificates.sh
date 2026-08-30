@@ -8,6 +8,7 @@ set -e
 export PACKAGE_NAME="ca-certificates"
 export PACKAGE_VERSION="2026-08-13"
 export PACKAGE_SHA256="f66dff1bdf8f96060b8177976f8b7d9254bc89bc4db933d769f7384d28480bc9"
+export PACKAGE_LICENSE="MPL-2.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.
