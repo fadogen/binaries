@@ -92,22 +92,33 @@ build() {
     # $(LD), which falls back to bare `ld` on Darwin and can't parse the
     # `-Wl,-headerpad_max_install_names` syntax in LDFLAGS. On Linux the
     # modules Makefile forces LD=gcc internally so this is a no-op there.
-    # SLOW=1 is readies' own switch for a sequential build, and it is needed:
-    # RedisTimeSeries builds a vendored libevent whose configure.rules hardcodes
-    # `make -j $(NPROC)`, regardless of the flags given here. That build is not
-    # parallel-safe, linking libevent's sample programs against
-    # .libs/libevent.so before the library exists. SLOW=1 sets NPROC=1 and
-    # empties MAKE_J, which serialises the module builds.
-    # No -j either, matching the formula, which does not parallelise deploy.
-    MAKE="${MAKE_BIN}" "$MAKE_BIN" deploy \
-        SLOW=1 \
-        PREFIX="${PREFIX}" \
-        CC="${CC:-cc}" \
-        LD="${CC:-cc}" \
-        BUILD_TLS=yes \
-        REDISEARCH_GENERATE_HEADERS=0 \
-        IGNORE_MISSING_DEPS=1 \
+    # `deploy` builds and installs the server together with the bundled modules
+    # (RediSearch, RedisJSON, RedisBloom, RedisTimeSeries). `install` alone
+    # leaves them out, which is what this recipe used to ship.
+    # BUILD_TLS=yes enables TLS support with OpenSSL.
+    local -a MAKE_ARGS=(
+        PREFIX="${PREFIX}"
+        CC="${CC:-cc}"
+        BUILD_TLS=yes
+        REDISEARCH_GENERATE_HEADERS=0
+        IGNORE_MISSING_DEPS=1
         LTO=0
+    )
+
+    # LD=cc is needed on macOS: redis' tests/modules/Makefile links .so via
+    # $(LD), which falls back to bare `ld` on Darwin and cannot parse the
+    # `-Wl,-headerpad_max_install_names` syntax in LDFLAGS.
+    #
+    # It must NOT be set on Linux. `deploy` propagates it through MAKEFLAGS into
+    # the module builds, where libtool links RedisTimeSeries' vendored libevent.
+    # With LD=cc it produces .libs/libevent.so and then fails to find it while
+    # linking libevent's sample programs. Reproduced and bisected in a container:
+    # every build carrying LD=cc fails, every build without it succeeds.
+    if [ "$(uname)" = "Darwin" ]; then
+        MAKE_ARGS+=(LD="${CC:-cc}")
+    fi
+
+    MAKE="${MAKE_BIN}" "$MAKE_BIN" deploy "${MAKE_ARGS[@]}"
 
     # deploy.sh returns success when only some modules built, so a silent
     # partial bundle is possible. Refuse it.
