@@ -92,3 +92,14 @@ teardown() {
     printf 'post_install() { chmod 0755 "$1"/lib/*.so; }\n' >> "$RECIPE"
     [ "$(recipe_build_digest "$RECIPE")" != "$BASELINE" ]
 }
+
+@test "a trailing semicolon in a reprinted function does not change the digest" {
+    # bash 5.2 and 5.3 disagree on whether the last command of a block gets a
+    # trailing semicolon when `declare -f` reprints it. Without normalising, the
+    # digest would depend on the bash that computed it, and a runner image
+    # upgrade would rebuild every bundle.
+    local WITH_SEMI="${TEST_TMP}/semi.sh"
+    sed 's/    make install/    make install;/' "$RECIPE" > "$WITH_SEMI"
+
+    [ "$(recipe_build_digest "$WITH_SEMI")" = "$BASELINE" ]
+}

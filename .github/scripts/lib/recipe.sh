@@ -198,7 +198,12 @@ recipe_build_digest() {
         done < <(comm -13 <(printf '%s\n' "$__digest_before") <(compgen -v | sort) | grep -v '^__digest_')
 
         # upstream_extra serves the sync, not the build, so it is left out.
-        declare -f build post_install 2>/dev/null
+        #
+        # The trailing-semicolon strip matters: bash 5.2 and 5.3 disagree on
+        # whether the last command of a block gets one when reprinting a
+        # function. Without it the digest depends on the bash that computed it,
+        # and a runner image upgrade would rebuild everything.
+        declare -f build post_install 2>/dev/null | sed 's/;[[:space:]]*$//'
     ) | sha256_text
 }
 
