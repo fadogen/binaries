@@ -216,6 +216,10 @@ jobs:
     if: ${{ !cancelled() && needs.check-and-sync.result == 'success' && needs.check-and-sync.outputs.should-build == 'true' }}
     timeout-minutes: 240
     continue-on-error: true
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -321,8 +325,13 @@ jobs:
         run: .github/scripts/build-from-recipes.sh "${{ matrix.recipe }}"
 
       # ========================================
-      # Common: Upload archive
+      # Common: attest, then upload
       # ========================================
+      - name: "Attest build provenance"
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: "${{ matrix.service }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
+
       - name: "Upload archive to R2 with SHA-256 checksum"
         shell: bash
         run: |
@@ -374,6 +383,10 @@ jobs:
     if: ${{ !cancelled() && needs.check-and-sync.result == 'success' && needs.check-and-sync.outputs.should-build-windows == 'true' }}
     timeout-minutes: 30
     continue-on-error: true
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -390,6 +403,13 @@ jobs:
       - name: "Download and repackage Windows binaries"
         run: |
           .github/scripts/services-windows-downloader.sh "${{ matrix.service }}" "${{ matrix.version }}"
+
+      # Attested before it reaches R2: an archive nobody vouched for should not
+      # be published at all.
+      - name: "Attest build provenance"
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: "${{ matrix.service }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip"
 
       - name: "Upload archive to R2 with SHA-256 checksum"
         run: |

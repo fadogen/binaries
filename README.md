@@ -109,6 +109,24 @@ archive and its checksum answers that.
 The licence expressions come from the same place as the versions: the sync
 records `PACKAGE_LICENSE` from the formula, whether or not the version moved.
 
+## Provenance you can check
+
+Every archive is attested before it reaches R2, with
+`actions/attest-build-provenance`. The attestation ties the archive's SHA-256 to
+the commit, workflow and runner that produced it, and lives in GitHub's
+attestation store rather than in the bucket:
+
+```bash
+gh attestation verify redis-8.10.1-darwin-arm64.tar.gz --repo fadogen/binaries
+```
+
+This is what `PROVENANCE.txt` cannot do. That file states what a bundle was
+built from; the attestation proves who built it, and it is worth having because
+the checksum in the metadata is served by the very bucket that serves the
+binary. Compromise the bucket and both move together. The attestation does not,
+so a consumer can check the binary against something the bucket does not
+control.
+
 ## Tests
 
 ```bash
