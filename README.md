@@ -61,10 +61,15 @@ R2 is not enough: a security fix in `openssl@3` would sit unshipped until the
 service itself happened to be bumped.
 
 Each metadata entry therefore carries `deps`, a fingerprint of every recipe in
-the bundle's dependency closure with the version it declares. The build matrix
-compares it alongside the version, so bumping a dependency rebuilds everything
-that embeds it. The fingerprint is computed for the target OS rather than the
-machine writing it, since one Linux runner writes the metadata for all of them.
+the bundle's dependency closure. It covers each recipe's whole file, so it moves
+both when a dependency is bumped and when the code building it changes: editing
+a `build()` function ships, rather than sitting unpublished until the service
+happens to be bumped. `BREW_FORMULA_REVIEWED` and `PACKAGE_LICENSE` are left out,
+being recipe bookkeeping that changes no byte of the binary.
+
+The build matrix compares the fingerprint alongside the version. It is computed
+for the target OS rather than the machine writing it, since one Linux runner
+writes the metadata for all of them.
 
 Windows entries are exempt: those bundles repackage upstream binaries and embed
 none of these recipes.

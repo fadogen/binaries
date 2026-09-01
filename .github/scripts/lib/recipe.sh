@@ -159,15 +159,29 @@ recipe_dependency_closure() {
     printf '%s\n' "${order[@]}"
 }
 
-# Fingerprint of what a bundle will contain: every recipe in its closure with
-# the version it currently declares. It moves when a dependency is bumped, which
-# a comparison on the service's own version alone would miss.
+# What a recipe contributes to the bundle: its whole file, minus the fields that
+# describe the recipe rather than the build. BREW_FORMULA_REVIEWED moves when a
+# formula is reviewed and PACKAGE_LICENSE when upstream relicenses; neither
+# changes a byte of the binary, and rebuilding on them would be noise.
+# Usage: recipe_build_digest <recipe-file>
+recipe_build_digest() {
+    local file="$1"
+
+    [[ -f "$file" ]] || { printf 'missing\n'; return 0; }
+
+    grep -vE '^(export )?(BREW_FORMULA_REVIEWED|PACKAGE_LICENSE)=' "$file" | sha256_text
+}
+
+# Fingerprint of what a bundle will contain: every recipe in its closure, with
+# the build each one describes. It moves when a dependency is bumped and when
+# the code building it changes, both of which a comparison on the service's own
+# version would miss.
 # Usage: recipe_dependency_fingerprint <recipe-name> [os]
 recipe_dependency_fingerprint() {
     local name="$1" os="${2:-}" dep
 
     while read -r dep; do
         [[ -n "$dep" ]] || continue
-        printf '%s=%s\n' "$dep" "$(recipe_field "${RECIPES_DIR}/${dep}.sh" PACKAGE_VERSION 2>/dev/null)"
+        printf '%s=%s\n' "$dep" "$(recipe_build_digest "${RECIPES_DIR}/${dep}.sh")"
     done < <(recipe_dependency_closure "$name" "$os") | sort | sha256_text
 }
