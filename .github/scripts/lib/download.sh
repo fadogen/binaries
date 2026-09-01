@@ -48,10 +48,20 @@ download_package() {
 
     mkdir -p "${DOWNLOADS_DIR}"
 
-    # Download if not cached
+    # Download if not cached.
+    #
+    # -f so an HTTP error is an error rather than a saved error page, --retry
+    # because upstream mirrors go down for minutes at a time, and the exit code
+    # is checked: without this a failed download reached the checksum step and
+    # was reported as a corrupted source, blaming the archive for the host.
     if [ ! -f "$filepath" ]; then
         echo -e "${BLUE}→ Downloading ${filename}...${NC}" >&2
-        curl -L -o "$filepath" "$url" >/dev/null 2>&1
+        if ! curl -fL --retry 3 --retry-delay "${DOWNLOAD_RETRY_DELAY:-5}" --retry-all-errors \
+            -o "$filepath" "$url" 2>/dev/null; then
+            rm -f "$filepath"
+            echo -e "${RED}✗ download failed: ${url}${NC}" >&2
+            return 1
+        fi
     else
         echo -e "${YELLOW}↺ Using cached ${filename}${NC}" >&2
     fi
