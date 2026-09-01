@@ -12,7 +12,7 @@ export PACKAGE_LICENSE="Apache-2.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
 # sync-upstream.sh reports when the formula's build logic moves past it.
-export BREW_FORMULA_REVIEWED="29fff4d75684fde29c4a072cb36d6305f4465500817badd934f750d246d49cef"
+export BREW_FORMULA_REVIEWED="d323c42f2641c40fdc0489c86b3c6c08ebc4c95b2997eaf5752ad13835c01329"
 
 # Derived from version
 export PACKAGE_URL="https://github.com/openssl/openssl/releases/download/openssl-${PACKAGE_VERSION}/openssl-${PACKAGE_VERSION}.tar.gz"
