@@ -18,6 +18,12 @@ export BREW_FORMULA_REVIEWED="1d85e0d26dc99d965d1d3e4408777e8395c664ccd860a8104b
 PACKAGE_VERSION_SHORT="${PACKAGE_VERSION%.*}"
 export PACKAGE_URL="https://kerberos.org/dist/${PACKAGE_NAME}/${PACKAGE_VERSION_SHORT}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 
+# kerberos.org goes down for minutes at a time and broke two consecutive runs.
+# MIT is where krb5 comes from, and serves the same archive.
+export PACKAGE_MIRRORS=(
+    "https://web.mit.edu/kerberos/dist/${PACKAGE_NAME}/${PACKAGE_VERSION_SHORT}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
+)
+
 # Runtime dependencies (must be built first)
 export DEPENDENCIES=(
     "openssl@3"

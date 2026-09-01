@@ -36,11 +36,17 @@ sha256_of_url() {
 }
 
 # Download and verify package
-# Usage: download_package <url> <sha256>
+# Usage: download_package <url> <sha256> [mirror-url...]
 # Returns: filepath (stdout)
+#
+# Mirrors matter as much as retries here: upstream hosts go down for minutes at
+# a time, and retrying the one that is down does not help. kerberos.org broke
+# two consecutive runs on its own.
 download_package() {
     local url="$1"
     local sha256="$2"
+    shift 2
+    local mirrors=("$@")
 
     local filename
     filename=$(basename "$url")
@@ -48,17 +54,27 @@ download_package() {
 
     mkdir -p "${DOWNLOADS_DIR}"
 
-    # Download if not cached.
-    #
-    # -f so an HTTP error is an error rather than a saved error page, --retry
-    # because upstream mirrors go down for minutes at a time, and the exit code
-    # is checked: without this a failed download reached the checksum step and
-    # was reported as a corrupted source, blaming the archive for the host.
+    # Download if not cached
     if [ ! -f "$filepath" ]; then
-        echo -e "${BLUE}→ Downloading ${filename}...${NC}" >&2
-        if ! curl -fL --retry 3 --retry-delay "${DOWNLOAD_RETRY_DELAY:-5}" --retry-all-errors \
-            -o "$filepath" "$url" 2>/dev/null; then
+        local source fetched=false
+        for source in "$url" "${mirrors[@]}"; do
+            echo -e "${BLUE}→ Downloading ${filename}...${NC}" >&2
+
+            # -f so an HTTP error is an error rather than a saved error page, and
+            # the exit code is checked: without this a failed download reached the
+            # checksum step and was reported as a corrupted source, blaming the
+            # archive for the host being down.
+            if curl -fL --retry 3 --retry-delay "${DOWNLOAD_RETRY_DELAY:-5}" --retry-all-errors \
+                -o "$filepath" "$source" 2>/dev/null; then
+                fetched=true
+                break
+            fi
+
             rm -f "$filepath"
+            echo -e "${YELLOW}↺ unreachable: ${source}${NC}" >&2
+        done
+
+        if [ "$fetched" != "true" ]; then
             echo -e "${RED}✗ download failed: ${url}${NC}" >&2
             return 1
         fi
