@@ -86,6 +86,10 @@ none of these recipes.
 
 ### What the sync will not decide for you
 
+These are reported, never acted on. They land in a single tracking issue
+labelled `sync-attention`, updated in place each night and closed once nothing
+is left, because a run summary is not somewhere anyone looks.
+
 - A new major line, `postgresql@19` say, is reported in the job summary, never
   added on its own.
 - Patches Homebrew applies from its own tap or inline in the formula cannot be
