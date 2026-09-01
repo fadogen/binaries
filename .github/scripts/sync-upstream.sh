@@ -10,6 +10,7 @@ set -euo pipefail
 #   sync-upstream.sh apply           Report drift and rewrite the outdated recipes.
 #   sync-upstream.sh review <recipe> Mark the formula's build logic as reviewed.
 #   sync-upstream.sh summary         Markdown digest of a report read on stdin.
+#   sync-upstream.sh attention       What needs a human decision, empty if nothing does.
 #   sync-upstream.sh commit-message  Commit message for a report read on stdin.
 #   sync-upstream.sh commit          Commit the synced recipes, if any changed.
 #
@@ -269,6 +270,56 @@ commit_sync() {
     log "committed: $(git log -1 --pretty=%s)"
 }
 
+# What in a report needs a human to decide something, as markdown. Empty when
+# nothing does, so the caller can close the tracking issue instead of leaving a
+# stale one open.
+#
+# The run summary is where these signals used to go, and nobody opens a run
+# summary. An issue gets read.
+attention() {
+    jq -r '
+        def rows(f): [.recipes[] | select(f)];
+
+        (rows(.status == "unresolved")) as $orphans
+        | (rows(.formula_changed == true)) as $moved
+        | (rows((.patches_not_replayed // 0) > 0)) as $unpatched
+        | (rows(.status == "failed")) as $failed
+        | (.new_major_lines // []) as $lines
+
+        | if (($orphans | length) + ($moved | length) + ($unpatched | length)
+              + ($failed | length) + ($lines | length)) == 0
+          then empty
+          else
+            ["The nightly sync is asking for decisions it will not take on its own.", ""]
+            + (if ($orphans | length) > 0 then
+                ["### Recipes tracking a line Homebrew no longer serves", "",
+                 "These stopped receiving updates entirely.", ""]
+                + [$orphans[] | "- `\(.recipe)`, pinned at \(.from)"] + [""]
+               else [] end)
+            + (if ($failed | length) > 0 then
+                ["### Recipes the sync could not update", ""]
+                + [$failed[] | "- `\(.recipe)`, still at \(.from), upstream is at \(.to)"] + [""]
+               else [] end)
+            + (if ($moved | length) > 0 then
+                ["### Formulae whose build logic moved", "",
+                 "Read the diff, carry over what matters into `build()`, then run `sync-upstream.sh review <recipe>`.", ""]
+                + [$moved[] | "- `\(.recipe)`: https://github.com/Homebrew/homebrew-core/commits/master/\(.formula_path)"] + [""]
+               else [] end)
+            + (if ($lines | length) > 0 then
+                ["### Major lines available upstream", "",
+                 "Adding one is a product decision, so the sync reports them instead.", ""]
+                + [$lines[] | "- `\(.)`"] + [""]
+               else [] end)
+            + (if ($unpatched | length) > 0 then
+                ["### Recipes building the plain tarball while Homebrew patches it", "",
+                 "Those patches live in the tap with no fetchable URL.", ""]
+                + [$unpatched[] | "- `\(.recipe)`: \(.patches_not_replayed) patch(es)"] + [""]
+               else [] end)
+            | .[]
+          end
+    '
+}
+
 # Markdown digest of a report, for the job summary. Anything that did not go
 # through is listed explicitly: a silent failure is the one that ships stale
 # binaries for months.
@@ -317,8 +368,9 @@ main() {
         commit-message) commit_message; return 0 ;;
         commit) commit_sync; return 0 ;;
         summary) summary; return 0 ;;
+        attention) attention; return 0 ;;
         *)
-            echo "usage: $(basename "$0") {check|apply|review <recipe>|commit|commit-message|summary}" >&2
+            echo "usage: $(basename "$0") {check|apply|review <recipe>|commit|commit-message|summary|attention}" >&2
             return 2
             ;;
     esac

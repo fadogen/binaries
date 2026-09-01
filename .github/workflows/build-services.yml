@@ -80,6 +80,7 @@ jobs:
     if: github.event_name != 'push' && inputs.skip_sync != true && !inputs.refresh_fingerprints
     permissions:
       contents: write
+      issues: write
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
     steps:
@@ -98,6 +99,35 @@ jobs:
           # error stand rather than masking it with a jq parse failure.
           [[ -s sync-report.json ]] || exit 0
           .github/scripts/sync-upstream.sh summary < sync-report.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Raise what needs a decision"
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [[ -s sync-report.json ]] || exit 0
+
+          # One tracking issue, updated rather than reopened, so a standing
+          # signal does not become nightly noise. Closed when nothing is left.
+          body=$(.github/scripts/sync-upstream.sh attention < sync-report.json)
+          existing=$(gh issue list --label sync-attention --state open \
+            --json number --jq '.[0].number // empty')
+
+          if [[ -z "$body" ]]; then
+            if [[ -n "$existing" ]]; then
+              gh issue close "$existing" --comment "Nothing left for the sync to ask about."
+              echo "Closed #${existing}"
+            fi
+            exit 0
+          fi
+
+          if [[ -n "$existing" ]]; then
+            gh issue edit "$existing" --body "$body"
+            echo "Updated #${existing}"
+          else
+            gh issue create --title "Upstream sync needs decisions" \
+              --label sync-attention --body "$body"
+          fi
 
       - name: "Commit and push"
         id: commit
