@@ -355,6 +355,48 @@ update_metadata() {
 }
 
 # ================================
+# REFRESH FINGERPRINTS COMMAND
+# ================================
+
+# Restate the dependency fingerprint of every published entry, without building
+# anything. Changing how the fingerprint is computed would otherwise mark every
+# bundle as stale and rebuild the lot, even when the recipes describe exactly
+# what was published. Verify that before running this: it asserts the published
+# artefacts match the recipes as they stand.
+refresh_fingerprints() {
+    local os="${1:-}" arch="${2:-}"
+    if [[ -z "$os" || -z "$arch" ]]; then
+        log_error "Usage: refresh-fingerprints <os> <arch>"
+    fi
+
+    if [[ "$os" == "windows" ]]; then
+        log_info "Windows bundles embed none of these recipes (skipping)"
+        return 0
+    fi
+
+    local metadata_file
+    metadata_file=$(get_metadata_file "$os" "$arch")
+    [[ -f "$metadata_file" ]] || { log_info "No metadata for $os/$arch (skipping)"; return 0; }
+
+    local metadata
+    metadata=$(cat "$metadata_file")
+
+    local service major recipe_name deps
+    while IFS=',' read -r service major; do
+        [[ -n "$service" ]] || continue
+        recipe_name=$(get_recipe_for_service_major "$service" "$major") || continue
+        deps=$(recipe_dependency_fingerprint "$recipe_name" "$os")
+
+        metadata=$(echo "$metadata" | jq -c \
+            --arg service "$service" --arg major "$major" --arg deps "$deps" \
+            '.[$service][$major].deps = $deps')
+        log_info "Refreshed $service $major ($os/$arch)"
+    done < <(echo "$metadata" | jq -r 'to_entries[] | .key as $s | .value | to_entries[] | "\($s),\(.key)"')
+
+    echo "$metadata" | jq '.' > "$metadata_file"
+}
+
+# ================================
 # MAIN
 # ================================
 
@@ -370,8 +412,12 @@ main() {
             shift
             update_metadata "$@"
             ;;
+        refresh-fingerprints)
+            shift
+            refresh_fingerprints "$@"
+            ;;
         *)
-            log_error "Usage: $0 {check-versions|update-metadata <os> <arch>}"
+            log_error "Usage: $0 {check-versions|update-metadata <os> <arch>|refresh-fingerprints <os> <arch>}"
             ;;
     esac
 }

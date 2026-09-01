@@ -8,6 +8,11 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      refresh_fingerprints:
+        description: 'Restate the dependency fingerprints of published bundles, without building anything'
+        required: false
+        default: false
+        type: boolean
       skip_sync:
         description: 'Build the recipes as they are, without syncing them with Homebrew first'
         required: false
@@ -33,13 +38,46 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
+  refresh-fingerprints:
+    name: "Refresh dependency fingerprints"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: inputs.refresh_fingerprints
+    permissions:
+      contents: write
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-east-1
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Restate the fingerprints"
+        run: |
+          # Only run this when the published bundles are known to match the
+          # recipes: it restates what they contain rather than verifying it.
+          for os in darwin linux; do
+            for arch in arm64 x86_64; do
+              filename="metadata-services-${os}-${arch}.json"
+              aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/${filename}" "${filename}" \
+                --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1 || continue
+
+              .github/scripts/services-metadata-manager.sh refresh-fingerprints "$os" "$arch"
+
+              aws s3 cp "${filename}" "s3://${{ secrets.R2_BUCKET_NAME }}/${filename}" \
+                --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
+              echo "Uploaded ${filename}"
+            done
+          done
+
   sync-upstream:
     name: "Sync recipes with Homebrew"
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # A push is somebody's deliberate edit: never overwrite it. The sync owns
     # the scheduled runs, where nobody is watching.
-    if: github.event_name != 'push' && inputs.skip_sync != true
+    if: github.event_name != 'push' && inputs.skip_sync != true && !inputs.refresh_fingerprints
     permissions:
       contents: write
     outputs:
@@ -87,7 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [sync-upstream]
     # The sync is skipped on push, which must not skip the build behind it.
-    if: always() && needs.sync-upstream.result != 'failure' && needs.sync-upstream.result != 'cancelled'
+    if: always() && !inputs.refresh_fingerprints && needs.sync-upstream.result != 'failure' && needs.sync-upstream.result != 'cancelled'
     outputs:
       build-matrix: ${{ steps.check.outputs.build-matrix }}
       should-build: ${{ steps.check.outputs.should-build }}

@@ -61,11 +61,21 @@ R2 is not enough: a security fix in `openssl@3` would sit unshipped until the
 service itself happened to be bumped.
 
 Each metadata entry therefore carries `deps`, a fingerprint of every recipe in
-the bundle's dependency closure. It covers each recipe's whole file, so it moves
-both when a dependency is bumped and when the code building it changes: editing
-a `build()` function ships, rather than sitting unpublished until the service
-happens to be bumped. `BREW_FORMULA_REVIEWED` and `PACKAGE_LICENSE` are left out,
-being recipe bookkeeping that changes no byte of the binary.
+the bundle's dependency closure. It describes what a recipe *means*, not how it
+is written: both halves are printed back by bash itself, `declare -p` for the
+variables and `declare -f` for `build()` and `post_install()`, so comments and
+indentation are already gone by the time anything is hashed.
+
+What moves it: a different source checksum, a patch, a dependency, a build
+dependency, the build code, or any variable the recipe defines. What does not:
+`PACKAGE_URL` and `PACKAGE_MIRRORS`, which say how to reach the source rather
+than what it is, along with `PACKAGE_LICENSE` and `BREW_FORMULA_REVIEWED`.
+
+Changing how the fingerprint is computed would mark every bundle as stale.
+`refresh-fingerprints` restates them without building, and the `Build Services`
+workflow exposes it as a manual input. Check that the published bundles match
+the recipes before using it: it restates what they contain rather than verifying
+it.
 
 The build matrix compares the fingerprint alongside the version. It is computed
 for the target OS rather than the machine writing it, since one Linux runner
