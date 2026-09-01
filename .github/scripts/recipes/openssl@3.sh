@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="openssl@3"
-export PACKAGE_VERSION="3.6.3"
-export PACKAGE_SHA256="243a86649cf6f23eeb6a2ff2456e09e5d77dd9018a54d3d96b0c6bdd6ba6c7f1"
+export PACKAGE_VERSION="3.6.4"
+export PACKAGE_SHA256="9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef"
 export PACKAGE_LICENSE="Apache-2.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.

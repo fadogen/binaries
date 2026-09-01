@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="pcre2"
-export PACKAGE_VERSION="10.47"
-export PACKAGE_SHA256="47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7"
+export PACKAGE_VERSION="10.48"
+export PACKAGE_SHA256="b6c68fdf6f3ac31388b50aa89ff0fc49c00c987c16e7b5146491d12003f2c8ed"
 export PACKAGE_LICENSE="BSD-3-Clause"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.

@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="valkey"
-export PACKAGE_VERSION="9.1.1"
-export PACKAGE_SHA256="7d7232acd1b8a49b4e05d07a00b3ca8c801ae06ab633ca6a3423bc5f385ab7ee"
+export PACKAGE_VERSION="9.1.2"
+export PACKAGE_SHA256="19c23908e7d57e8d91ef85b41f5646307582f10f4f0fb999bbf89ed24ec9c983"
 export PACKAGE_LICENSE="BSD-3-Clause AND BSD-2-Clause AND BSL-1.0 AND MIT AND (CC0-1.0 OR BSD-2-Clause)"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
