@@ -18,7 +18,7 @@ export BREW_FORMULA_REVIEWED="639d7870259e2a72c9c26af07c32f603b6140505d72bfa0f2e
 READLINE_BASE_VERSION="${PACKAGE_VERSION%.*}"
 
 # Derived from version
-export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${READLINE_BASE_VERSION}.tar.gz"
+export PACKAGE_URL="https://ftp.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${READLINE_BASE_VERSION}.tar.gz"
 
 # Patch checksums (001, 002, 003)
 declare -a PATCH_CHECKSUMS=(
@@ -76,11 +76,10 @@ build() {
     for i in $(seq 1 "$PATCH_LEVEL"); do
         local PATCH_NUM
         PATCH_NUM=$(printf "%03d" "$i")
-        local PATCH_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${READLINE_BASE_VERSION}-patches/${PACKAGE_NAME}${BASE_SHORT}-${PATCH_NUM}"
+        local PATCH_URL="https://ftp.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${READLINE_BASE_VERSION}-patches/${PACKAGE_NAME}${BASE_SHORT}-${PATCH_NUM}"
 
-        # download_package caches, verifies and retries. ftpmirror.gnu.org
-        # redirects to a random mirror and some of them answer 502, so the
-        # retries matter here.
+        # download_package caches, verifies and retries. The patches come from
+        # the canonical host for the same reason the tarball does.
         local PATCH_FILE
         PATCH_FILE=$(download_package "$PATCH_URL" "${PATCH_CHECKSUMS[$((i-1))]}") || {
             echo "✗ Patch ${PATCH_NUM} could not be fetched or verified"

@@ -15,7 +15,7 @@ export PACKAGE_LICENSE="GPL-3.0-or-later AND LGPL-2.1-or-later"
 export BREW_FORMULA_REVIEWED="041274023071a8b9fa38a9f555dce181262499672614223b65bed396b9463f05"
 
 # Derived from version
-export PACKAGE_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
+export PACKAGE_URL="https://ftp.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 
 # Runtime dependencies (common)
 export DEPENDENCIES=(
