@@ -74,28 +74,18 @@ build() {
     local BASE_SHORT="${READLINE_BASE_VERSION//./}"
 
     for i in $(seq 1 "$PATCH_LEVEL"); do
-        local PATCH_NUM=$(printf "%03d" "$i")
+        local PATCH_NUM
+        PATCH_NUM=$(printf "%03d" "$i")
         local PATCH_URL="https://ftpmirror.gnu.org/gnu/${PACKAGE_NAME}/${PACKAGE_NAME}-${READLINE_BASE_VERSION}-patches/${PACKAGE_NAME}${BASE_SHORT}-${PATCH_NUM}"
-        local PATCH_FILE="${DOWNLOADS_DIR}/${PACKAGE_NAME}${BASE_SHORT}-${PATCH_NUM}"
-        local PATCH_SHA256="${PATCH_CHECKSUMS[$((i-1))]}"
 
-        # Download patch
-        if [ ! -f "$PATCH_FILE" ]; then
-            curl -fSL -o "$PATCH_FILE" "$PATCH_URL"
-        fi
-
-        # Verify patch checksum (cross-platform)
-        if command -v sha256sum >/dev/null 2>&1; then
-            echo "$PATCH_SHA256  $PATCH_FILE" | sha256sum -c - || {
-                echo "✗ Patch ${PATCH_NUM} checksum verification failed"
-                return 1
-            }
-        else
-            echo "$PATCH_SHA256  $PATCH_FILE" | shasum -a 256 -c - || {
-                echo "✗ Patch ${PATCH_NUM} checksum verification failed"
-                return 1
-            }
-        fi
+        # download_package caches, verifies and retries. ftpmirror.gnu.org
+        # redirects to a random mirror and some of them answer 502, so the
+        # retries matter here.
+        local PATCH_FILE
+        PATCH_FILE=$(download_package "$PATCH_URL" "${PATCH_CHECKSUMS[$((i-1))]}") || {
+            echo "✗ Patch ${PATCH_NUM} could not be fetched or verified"
+            return 1
+        }
 
         # Apply patch (-p0 means strip 0 path components)
         patch -p0 < "$PATCH_FILE"
