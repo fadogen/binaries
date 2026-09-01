@@ -80,3 +80,30 @@ RECIPE
 
     [ "$(recipe_dependency_fingerprint "mysql@9" linux)" != "$(recipe_dependency_fingerprint "mysql@9" darwin)" ]
 }
+
+@test "the fingerprint covers the recipe's build code, not just its version" {
+    given_recipe_with_deps "redis@8" "8.10.1" "openssl@3"
+    given_recipe_with_deps "openssl@3" "3.6.4"
+
+    local before
+    before="$(recipe_dependency_fingerprint "redis@8")"
+
+    # Same version, different build. The published bundle would differ.
+    printf 'build() { ./configure --with-something-new; }\n' >> "${RECIPES_DIR}/openssl@3.sh"
+
+    [ "$(recipe_dependency_fingerprint "redis@8")" != "$before" ]
+}
+
+@test "reviewing a formula or a licence change does not trigger a rebuild" {
+    given_recipe_with_deps "redis@8" "8.10.1" "openssl@3"
+    given_recipe_with_deps "openssl@3" "3.6.4"
+
+    local before
+    before="$(recipe_dependency_fingerprint "redis@8")"
+
+    # Both are recipe bookkeeping: neither changes a byte of the binary.
+    printf 'export BREW_FORMULA_REVIEWED="abc123"\n' >> "${RECIPES_DIR}/openssl@3.sh"
+    printf 'export PACKAGE_LICENSE="Apache-2.0"\n' >> "${RECIPES_DIR}/openssl@3.sh"
+
+    [ "$(recipe_dependency_fingerprint "redis@8")" = "$before" ]
+}
