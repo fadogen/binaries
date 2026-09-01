@@ -43,3 +43,21 @@ teardown() {
 
     [ ! -f "${DOWNLOADS_DIR}/absent.tar.gz" ]
 }
+
+@test "a dead primary falls back to a mirror" {
+    printf 'the real payload\n' > "${TEST_TMP}/real.tar.gz"
+    local sha
+    sha=$(shasum -a 256 "${TEST_TMP}/real.tar.gz" | cut -d' ' -f1)
+
+    run download_package "file://${TEST_TMP}/absent.tar.gz" "$sha" "file://${TEST_TMP}/real.tar.gz"
+
+    [ "$status" -eq 0 ]
+    [ -s "$(printf '%s' "$output" | tail -1)" ]
+}
+
+@test "every source being down is reported as such" {
+    run download_package "file://${TEST_TMP}/absent.tar.gz" "0000000000000000000000000000000000000000000000000000000000000000" "file://${TEST_TMP}/also-absent.tar.gz"
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"download failed"* ]]
+}

@@ -148,6 +148,7 @@ build_package() {
         echo "VERSION=${PACKAGE_VERSION}"
         echo "URL=${PACKAGE_URL}"
         echo "SHA256=${PACKAGE_SHA256}"
+        echo "MIRRORS=${PACKAGE_MIRRORS[*]}"
         echo "DEPS=${DEPENDENCIES[*]}"
         echo "LINUX_DEPS=${DEPENDENCIES_LINUX[*]}"
         echo "MACOS_DEPS=${DEPENDENCIES_MACOS[*]}"
@@ -164,6 +165,8 @@ build_package() {
     pkg_url=$(echo "$recipe_info" | grep "^URL=" | cut -d= -f2-)
     local pkg_sha256
     pkg_sha256=$(echo "$recipe_info" | grep "^SHA256=" | cut -d= -f2-)
+    local pkg_mirrors
+    pkg_mirrors=$(echo "$recipe_info" | grep "^MIRRORS=" | cut -d= -f2-)
     local pkg_deps
     pkg_deps=$(echo "$recipe_info" | grep "^DEPS=" | cut -d= -f2-)
     local pkg_linux_deps
@@ -256,7 +259,8 @@ build_package() {
     # Download source
     echo -e "${indent}${BLUE}→ Downloading ${package_name} ${pkg_version}${NC}"
     local archive_path
-    archive_path=$(download_package "$pkg_url" "$pkg_sha256")
+    # shellcheck disable=SC2086  # mirrors are a space-separated list of URLs
+    archive_path=$(download_package "$pkg_url" "$pkg_sha256" $pkg_mirrors)
 
     # Extract source
     local source_dir
