@@ -34,3 +34,58 @@ teardown() {
     [ "$(jq -r --arg v "$expected" '[.include[] | select(.service == "mysql" and .major == "9" and .version == $v)] | length' <<<"$matrix")" -eq 2 ]
     [ "$(jq -r '[.include[] | select(.service == "mysql" and .major == "9")] | first | .recipe' <<<"$matrix")" = "mysql@9" ]
 }
+
+@test "a service is rebuilt when a dependency moved, though its own version did not" {
+    cd "$TEST_TMP" || return 1
+    export GITHUB_OUTPUT="${TEST_TMP}/outputs"
+    export FILTER_OS="darwin"
+
+    # Metadata that already carries the current redis version, so only the
+    # dependency fingerprint can justify a rebuild.
+    local version
+    version="$(recipe_field "${RECIPES_DIR}/redis@8.sh" PACKAGE_VERSION)"
+    for arch in arm64 x86_64; do
+        jq -n --arg v "$version" '{redis: {"8": {latest: $v, sha256: "x", filename: "f", deps: "stale-fingerprint"}}}' \
+            > "metadata-services-darwin-${arch}.json"
+    done
+
+    run --separate-stderr "$MANAGER" check-versions
+    [ "$status" -eq 0 ]
+
+    local matrix
+    matrix="$(grep '^build-matrix=' "$GITHUB_OUTPUT" | cut -d= -f2-)"
+    [ "$(jq -r '[.include[] | select(.service == "redis")] | length' <<<"$matrix")" -eq 2 ]
+}
+
+@test "update-metadata records the dependency fingerprint, so the rebuild is not endless" {
+    cd "$TEST_TMP" || return 1
+    echo '{}' > metadata-services-darwin-arm64.json
+
+    local version
+    version="$(recipe_field "${RECIPES_DIR}/redis@8.sh" PACKAGE_VERSION)"
+    printf 'redis,%s,8,abc,redis-%s-darwin-arm64.tar.gz\n' "$version" "$version" \
+        | "$MANAGER" update-metadata darwin arm64 2>/dev/null
+
+    source "${LIB_DIR}/recipe.sh"
+    RECIPES_DIR="${RECIPES_DIR}" run recipe_dependency_fingerprint "redis@8" darwin
+    [ "$(jq -r '.redis."8".deps' metadata-services-darwin-arm64.json)" = "$output" ]
+}
+
+@test "a Windows entry ignores the dependency fingerprint, its bundle embedding none" {
+    cd "$TEST_TMP" || return 1
+    export GITHUB_OUTPUT="${TEST_TMP}/outputs"
+    export FILTER_OS="windows"
+
+    local version
+    version="$(recipe_field "${RECIPES_DIR}/redis@8.sh" PACKAGE_VERSION)"
+    jq -n --arg v "$version" '{redis: {"8": {latest: $v, sha256: "x", filename: "f"}}}' \
+        > "metadata-services-windows-x86_64.json"
+
+    run --separate-stderr "$MANAGER" check-versions
+    [ "$status" -eq 0 ]
+
+    # Windows repackages upstream binaries: no recipe of ours ships inside.
+    local matrix
+    matrix="$(grep '^windows-matrix=' "$GITHUB_OUTPUT" | cut -d= -f2-)"
+    [ "$(jq -r '[.include[] | select(.service == "redis")] | length' <<<"$matrix")" -eq 0 ]
+}

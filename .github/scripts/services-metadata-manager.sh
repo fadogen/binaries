@@ -21,6 +21,10 @@ source "$CONFIG_PATH"
 # shellcheck source=lib/recipe.sh
 source "${SCRIPT_DIR}/lib/recipe.sh"
 
+# recipe_dependency_fingerprint resolves dependencies from this directory.
+# shellcheck disable=SC2034  # read by lib/recipe.sh
+RECIPES_DIR="${SCRIPT_DIR}/recipes"
+
 # Runners by OS and architecture
 declare -A OS_ARCH_RUNNERS=(
     # macOS
@@ -178,6 +182,20 @@ check_versions() {
                     local metadata_latest
                     metadata_latest=$(echo "$metadata" | jq -r ".\"$service\".\"$major\".latest // \"\"")
 
+                    # A bundle embeds its dependencies, so a bump in any of them
+                    # has to trigger a rebuild even when the service itself has
+                    # not moved. Metadata written before this existed carries no
+                    # fingerprint, which counts as a mismatch: those bundles do
+                    # predate the current dependency versions.
+                    # Windows repackages upstream binaries rather than building
+                    # from our recipes, so nothing of ours ships inside and the
+                    # fingerprint has nothing to say about it.
+                    local metadata_deps="" recipe_deps=""
+                    if [[ "$os" != "windows" ]]; then
+                        metadata_deps=$(echo "$metadata" | jq -r ".\"$service\".\"$major\".deps // \"\"")
+                        recipe_deps=$(recipe_dependency_fingerprint "$recipe_name" "$os")
+                    fi
+
                     # Check if force rebuild is requested for this service
                     local force_rebuild=false
                     if [[ -n "${FORCE_REBUILD_SERVICES:-}" ]]; then
@@ -190,12 +208,14 @@ check_versions() {
                         done
                     fi
 
-                    # Compare versions (or force rebuild)
-                    if [[ "$recipe_version" != "$metadata_latest" || "$force_rebuild" == "true" ]]; then
+                    # Compare versions and dependency fingerprints (or force rebuild)
+                    if [[ "$recipe_version" != "$metadata_latest" || "$recipe_deps" != "$metadata_deps" || "$force_rebuild" == "true" ]]; then
                         if [[ "$force_rebuild" == "true" ]]; then
                             log_info "Force: ${service} ${major} ${os}/${arch} -> ${recipe_version}"
                         elif [[ -z "$metadata_latest" ]]; then
                             log_info "New: ${service} ${major} ${os}/${arch} -> ${recipe_version}"
+                        elif [[ "$recipe_version" == "$metadata_latest" ]]; then
+                            log_info "Deps moved: ${service} ${major} ${os}/${arch} (${recipe_version} unchanged)"
                         else
                             log_info "Update: ${service} ${major} ${os}/${arch} -> ${recipe_version} (was: ${metadata_latest})"
                         fi
@@ -285,6 +305,13 @@ update_metadata() {
 
         log_info "Updating $service $major ($os/$arch): $version"
 
+        # The dependency fingerprint travels with the entry: without it, every
+        # later run would see a mismatch and rebuild the service forever.
+        local recipe_name deps=""
+        if [[ "$os" != "windows" ]] && recipe_name=$(get_recipe_for_service_major "$service" "$major"); then
+            deps=$(recipe_dependency_fingerprint "$recipe_name" "$os")
+        fi
+
         # Update metadata using jq
         metadata=$(echo "$metadata" | jq -c \
             --arg service "$service" \
@@ -292,10 +319,12 @@ update_metadata() {
             --arg latest "$version" \
             --arg sha256 "$sha256" \
             --arg filename "$filename" \
+            --arg deps "$deps" \
             '.[$service][$major] = {
                 "latest": $latest,
                 "sha256": $sha256,
-                "filename": $filename
+                "filename": $filename,
+                "deps": $deps
             }')
     done <<< "$checksums_input"
 
