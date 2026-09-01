@@ -10,6 +10,9 @@
     return 1 2>/dev/null || exit 1
 }
 
+# shellcheck source=download.sh
+source "$(dirname "${BASH_SOURCE[0]}")/download.sh"
+
 recipe_die() {
     echo "[recipe] $1" >&2
     return 1
@@ -114,4 +117,57 @@ recipe_set_array() {
 
     (( hits > 0 )) || recipe_die "no such array in $(basename "$file"): $name" || return 1
     _recipe_write "$file" "${out[@]}"
+}
+
+# Names of every recipe a package pulls in at runtime, itself included, in
+# depth-first order. Platform-specific lists are merged, so the fingerprint of a
+# service covers what its bundle actually embeds on this OS.
+# The OS is an argument, not the machine's: metadata for every platform is
+# written from a single Linux runner.
+# Usage: recipe_dependency_closure <recipe-name> [os]
+recipe_dependency_closure() {
+    local name="$1" os="${2:-}"
+    [[ -n "$os" ]] || { [[ "$(uname)" == "Darwin" ]] && os="darwin" || os="linux"; }
+    local -A seen=()
+    local -a stack=("$name") order=()
+
+    while (( ${#stack[@]} > 0 )); do
+        local current="${stack[0]}"
+        stack=("${stack[@]:1}")
+        [[ -n "${seen[$current]:-}" ]] && continue
+        seen[$current]=1
+        order+=("$current")
+
+        local file="${RECIPES_DIR}/${current}.sh"
+        [[ -f "$file" ]] || continue
+
+        local dep
+        while read -r dep; do
+            [[ -n "$dep" ]] && stack+=("$dep")
+        done < <(
+            set +e
+            # shellcheck source=/dev/null
+            source "$file" >/dev/null 2>&1
+            if [[ "$os" == "darwin" ]]; then
+                printf '%s\n' "${DEPENDENCIES[@]}" "${DEPENDENCIES_MACOS[@]}" 2>/dev/null
+            else
+                printf '%s\n' "${DEPENDENCIES[@]}" "${DEPENDENCIES_LINUX[@]}" 2>/dev/null
+            fi
+        )
+    done
+
+    printf '%s\n' "${order[@]}"
+}
+
+# Fingerprint of what a bundle will contain: every recipe in its closure with
+# the version it currently declares. It moves when a dependency is bumped, which
+# a comparison on the service's own version alone would miss.
+# Usage: recipe_dependency_fingerprint <recipe-name> [os]
+recipe_dependency_fingerprint() {
+    local name="$1" os="${2:-}" dep
+
+    while read -r dep; do
+        [[ -n "$dep" ]] || continue
+        printf '%s=%s\n' "$dep" "$(recipe_field "${RECIPES_DIR}/${dep}.sh" PACKAGE_VERSION 2>/dev/null)"
+    done < <(recipe_dependency_closure "$name" "$os") | sort | sha256_text
 }

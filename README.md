@@ -54,6 +54,21 @@ over what matters into `build()`, then record that you have looked:
 The version keeps being synced in the meantime. A build-logic change must never
 strand a security fix behind a review.
 
+### Rebuilding when a dependency moves
+
+A bundle embeds its dependencies, so comparing the service's own version against
+R2 is not enough: a security fix in `openssl@3` would sit unshipped until the
+service itself happened to be bumped.
+
+Each metadata entry therefore carries `deps`, a fingerprint of every recipe in
+the bundle's dependency closure with the version it declares. The build matrix
+compares it alongside the version, so bumping a dependency rebuilds everything
+that embeds it. The fingerprint is computed for the target OS rather than the
+machine writing it, since one Linux runner writes the metadata for all of them.
+
+Windows entries are exempt: those bundles repackage upstream binaries and embed
+none of these recipes.
+
 ### What the sync will not decide for you
 
 - A new major line, `postgresql@19` say, is reported in the job summary, never
