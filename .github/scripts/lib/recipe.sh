@@ -159,17 +159,47 @@ recipe_dependency_closure() {
     printf '%s\n' "${order[@]}"
 }
 
-# What a recipe contributes to the bundle: its whole file, minus the fields that
-# describe the recipe rather than the build. BREW_FORMULA_REVIEWED moves when a
-# formula is reviewed and PACKAGE_LICENSE when upstream relicenses; neither
-# changes a byte of the binary, and rebuilding on them would be noise.
+# Fields that say how to obtain the source or track the recipe, never what the
+# build produces. PACKAGE_SHA256 already identifies the source; a URL is only a
+# route to it, and a review marker or a licence changes no byte of the binary.
+RECIPE_DIGEST_IGNORED=(
+    PACKAGE_URL
+    PACKAGE_MIRRORS
+    PACKAGE_LICENSE
+    BREW_FORMULA_REVIEWED
+)
+
+# What a recipe contributes to a bundle: its source, its patches, its
+# dependencies and the code that compiles them.
+#
+# Both halves are printed back by bash itself, not read from the file, so the
+# digest describes what the recipe means rather than how it is written.
+# `declare -p` prints variables in canonical form and `declare -f` reprints
+# functions without comments and with normalised indentation. Reformatting a
+# recipe, or documenting it, therefore rebuilds nothing.
 # Usage: recipe_build_digest <recipe-file>
 recipe_build_digest() {
     local file="$1"
 
     [[ -f "$file" ]] || { printf 'missing\n'; return 0; }
 
-    grep -vE '^(export )?(BREW_FORMULA_REVIEWED|PACKAGE_LICENSE)=' "$file" | sha256_text
+    (
+        set +e
+        __digest_before=$(compgen -v | sort)
+        # shellcheck source=/dev/null
+        source "$file" >/dev/null 2>&1
+
+        # Every variable the recipe defined, minus the ones that describe
+        # nothing about the output. Names starting with __ are this function's.
+        local __digest_name
+        while read -r __digest_name; do
+            [[ " ${RECIPE_DIGEST_IGNORED[*]} " == *" ${__digest_name} "* ]] && continue
+            declare -p "$__digest_name" 2>/dev/null
+        done < <(comm -13 <(printf '%s\n' "$__digest_before") <(compgen -v | sort) | grep -v '^__digest_')
+
+        # upstream_extra serves the sync, not the build, so it is left out.
+        declare -f build post_install 2>/dev/null
+    ) | sha256_text
 }
 
 # Fingerprint of what a bundle will contain: every recipe in its closure, with

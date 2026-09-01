@@ -89,3 +89,22 @@ teardown() {
     matrix="$(grep '^windows-matrix=' "$GITHUB_OUTPUT" | cut -d= -f2-)"
     [ "$(jq -r '[.include[] | select(.service == "redis")] | length' <<<"$matrix")" -eq 0 ]
 }
+
+@test "refresh-fingerprints rewrites the fingerprints without touching anything else" {
+    cd "$TEST_TMP" || return 1
+
+    jq -n '{redis: {"8": {latest: "8.10.1", sha256: "abc", filename: "f.tar.gz", deps: "computed-by-an-older-method"}}}' \
+        > metadata-services-darwin-arm64.json
+
+    run --separate-stderr "$MANAGER" refresh-fingerprints darwin arm64
+    [ "$status" -eq 0 ]
+
+    source "${LIB_DIR}/recipe.sh"
+    RECIPES_DIR="${RECIPES_DIR}" run recipe_dependency_fingerprint "redis@8" darwin
+    [ "$(jq -r '.redis."8".deps' metadata-services-darwin-arm64.json)" = "$output" ]
+
+    # The published artefact is untouched: only the fingerprint is restated.
+    [ "$(jq -r '.redis."8".latest' metadata-services-darwin-arm64.json)" = "8.10.1" ]
+    [ "$(jq -r '.redis."8".sha256' metadata-services-darwin-arm64.json)" = "abc" ]
+    [ "$(jq -r '.redis."8".filename' metadata-services-darwin-arm64.json)" = "f.tar.gz" ]
+}
