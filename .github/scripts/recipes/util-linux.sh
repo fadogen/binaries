@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="util-linux"
-export PACKAGE_VERSION="2.42.2"
-export PACKAGE_SHA256="03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a"
+export PACKAGE_VERSION="2.42.3"
+export PACKAGE_SHA256="66ac7c0e725278eb2b039e3104f2c91119341d941b41bac7a285c695f940bd57"
 export PACKAGE_LICENSE="BSD-3-Clause AND BSD-4-Clause-UC AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LGPL-2.1-or-later AND LicenseRef-Homebrew-public-domain"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
