@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="pkgconf"
-export PACKAGE_VERSION="3.0.6"
-export PACKAGE_SHA256="c88a653fbabfa2a5857a30f6b6ad6c40dbacc3b7c72cc066e5c7dc4571cbddaa"
+export PACKAGE_VERSION="3.0.7"
+export PACKAGE_SHA256="c926ff491cbd9a331a589160811bd97ab1749b4d5198a519338f2cdfabe6940a"
 export PACKAGE_LICENSE="ISC"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.

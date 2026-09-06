@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="simdjson"
-export PACKAGE_VERSION="4.6.10"
-export PACKAGE_SHA256="1d560f233ff4a29eae0eaa8b4138bfaa72ca86714a12da6a85654812581e8926"
+export PACKAGE_VERSION="4.6.11"
+export PACKAGE_SHA256="61d948fc24f0d793829ad658058e7597d064988a89b4607ea02e401a82df98ff"
 export PACKAGE_LICENSE="Apache-2.0"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.

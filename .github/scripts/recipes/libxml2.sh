@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="libxml2"
-export PACKAGE_VERSION="2.15.3"
-export PACKAGE_SHA256="78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07"
+export PACKAGE_VERSION="2.15.4"
+export PACKAGE_SHA256="98087fd181d9070724f3fbc65c7377db03038eb92bd882374daff44940138821"
 export PACKAGE_LICENSE="MIT"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
