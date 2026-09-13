@@ -6,8 +6,8 @@ set -e
 
 # Metadata
 export PACKAGE_NAME="xz"
-export PACKAGE_VERSION="5.8.3"
-export PACKAGE_SHA256="3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0"
+export PACKAGE_VERSION="5.8.4"
+export PACKAGE_SHA256="0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9"
 export PACKAGE_LICENSE="0BSD AND GPL-2.0-or-later"
 
 # Fingerprint of the Homebrew formula this recipe was transposed from.
