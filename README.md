@@ -1,135 +1,113 @@
 # Fadogen Binaries
 
-Pre-compiled binaries for the [Fadogen](https://github.com/fadogen/app) macOS application.
+Native runtimes downloaded by [Fadogen](https://github.com/fouteox/tauri-fadogen).
+Database and cache engines are **repackaged from Homebrew bottles**, together with
+their runtime dependencies. Users do not install Homebrew. PHP continues to use
+static-php-cli; the independent Composer, Garage, SSHpass and Typesense workflows
+remain separate.
 
-## Staying current with Homebrew
+## Service catalogue
 
-Database services are built from the recipes in `.github/scripts/recipes`. Each
-recipe pairs a metadata block, meaning version, source URL and checksum, with
-the `build()` function that turns that source into a portable bundle.
+| Service | Major lines | macOS ARM64 | Linux ARM64 / x86_64 | Windows x86_64 |
+| --- | --- | --- | --- | --- |
+| MariaDB | 10, 11, 12 | Homebrew | Homebrew | MariaDB archive |
+| MySQL | 8, 9 | Homebrew | Homebrew | Oracle archive |
+| PostgreSQL | 14–18 | Homebrew | Homebrew | EnterpriseDB archive |
+| Redis | 8 | Homebrew | Homebrew | Existing community source |
+| Valkey | 9 | Homebrew | Homebrew | Unavailable |
 
-The metadata block is not maintained by hand. `.github/scripts/sync-upstream.sh`
-reads the Homebrew formula each recipe tracks and rewrites the block to match:
+`.github/config/services.json` is the catalogue. The resolver picks the highest
+published formula within each configured major: MySQL 8 can resolve to `mysql@8.4`
+even when the unversioned formula has moved to a different major. Missing bottles
+are reported as unavailable; they never trigger a source compilation or remove a
+previously published platform entry.
 
-```bash
-.github/scripts/sync-upstream.sh check   # report the drift, write nothing
-.github/scripts/sync-upstream.sh apply   # rewrite the outdated recipes
+The service matrix drops Intel Macs. Fadogen's intended macOS baseline is 27;
+packaging currently uses the standard ARM64 macOS 26 runner and selects an older
+compatible bottle where available. Linux qualification uses Ubuntu 24.04 on both
+architectures. These choices do not change the other workflows' platform policy.
+
+## Build and verify locally
+
+Python 3.12+ is the only Python runtime dependency. Run on the target architecture:
+macOS needs `otool`, `install_name_tool` and `codesign`; Linux needs `patchelf`,
+`readelf` and `ldd`. Functional tests also use the system `openssl`. Homebrew itself
+is not invoked or installed by the packager.
+
+```sh
+python3 .github/scripts/package-services.py plan \
+  --services postgresql --majors 18 --os darwin --arch arm64 \
+  --output package-plan.json
+python3 .github/scripts/package-services.py build \
+  --plan package-plan.json --id postgresql-18-darwin-arm64
+python3 .github/scripts/package-services.py verify \
+  --plan package-plan.json --id postgresql-18-darwin-arm64
 ```
 
-The `Build Services` workflow runs `apply` every night, commits whatever moved,
-and builds from that commit in the same run. Nothing needs a human in the loop.
-A push to `main` skips the sync, so a deliberate edit is never overwritten.
+`dist/` contains the final archive, its JSON receipt and qualification evidence.
+The default macOS signature is ad hoc. Production requires a Developer ID identity
+and a temporary keychain; every Mach-O file is signed and verified before packaging.
+Never install or test over an existing database's data directory.
 
-### How a recipe finds its formula
+The runtime keeps private `Cellar/<formula>/<version>` directories to avoid library
+name collisions, with relative `bin`, `lib`, `share` and `opt` links. Fadogen keeps
+its existing archive extraction and launch contract. SQL launchers resolve the
+package location, private sockets and plugin paths; they preserve caller overrides.
+MariaDB's installer has a guarded quoting correction for paths containing spaces.
+Build-only headers, static archives, manuals and tests are removed; license files
+and extension resources are retained. `PROVENANCE.json` records every input URL,
+checksum, formula revision/source and relocation performed.
 
-A recipe is named after the major line it tracks, `mysql@9` rather than
-`mysql@9.7`, so a Homebrew rename inside that line changes nothing here. The
-resolver picks the formula currently serving the line, whether that is the base
-formula, `redis` for the 8 line, or a versioned one, `mysql@9.7` for the 9 line.
+## Publication
 
-A recipe whose source URL differs from the formula's, such as `nss@3` and its
-bundled NSPR tarball, gets its checksum recomputed from the artefact it really
-downloads. When that URL needs more than a version number, the recipe defines an
-`upstream_extra` hook that resolves the missing fields itself.
+The scheduled job checks for changes daily; it does not rebuild identical inputs.
+A frozen JSON plan is shared by packaging, verification and publication. Dependency
+bottle checksums and packager changes affect the fingerprint; unrelated Homebrew
+tap commits do not. Metadata is never recomputed from a different checkout or
+restated without building the corresponding archive.
 
-### Keeping up with the formula itself, not just its version
+Each successful job tests the **final compressed archive** after extraction and
+movement to a path with spaces, then attests and uploads those exact bytes. Archive
+names include the full SHA-256. Only uploaded-success receipts reach the metadata
+job, which rereads the current metadata and merges those entries. Failed versions
+and other platforms remain intact. Production runs are serialized; storage access
+errors fail the job instead of replacing metadata with an empty object.
 
-A recipe transposes a formula's build logic by hand. When Homebrew changes that
-logic without changing the version, adding a dependency, a patch, or a step in
-`install`, nothing about the version tells you.
+Old content-addressed archives are retained. Immediate deletion would break a
+client still holding previous metadata. Retention/garbage collection needs a
+separate policy; this workflow does not pretend that storage growth is free.
+GitHub stores small plans, receipts and test evidence for seven days, not the
+runtime archives or a permanent multi-gigabyte cache.
 
-Each recipe therefore carries `BREW_FORMULA_REVIEWED`, a fingerprint of the
-formula file with the volatile parts stripped out: the `bottle` block, the
-`livecheck` block, and the source coordinates the sync already tracks. A version
-bump or a bottle rebuild leaves that fingerprint alone; a changed `depends_on`,
-`patch` or `install` block moves it.
-
-When it moves, the run summary links to the formula history. Read the diff, carry
-over what matters into `build()`, then record that you have looked:
-
-```bash
-.github/scripts/sync-upstream.sh review redis@8
-```
-
-The version keeps being synced in the meantime. A build-logic change must never
-strand a security fix behind a review.
-
-### Rebuilding when a dependency moves
-
-A bundle embeds its dependencies, so comparing the service's own version against
-R2 is not enough: a security fix in `openssl@3` would sit unshipped until the
-service itself happened to be bumped.
-
-Each metadata entry therefore carries `deps`, a fingerprint of every recipe in
-the bundle's dependency closure. It describes what a recipe *means*, not how it
-is written: both halves are printed back by bash itself, `declare -p` for the
-variables and `declare -f` for `build()` and `post_install()`, so comments and
-indentation are already gone by the time anything is hashed.
-
-What moves it: a different source checksum, a patch, a dependency, a build
-dependency, the build code, or any variable the recipe defines. What does not:
-`PACKAGE_URL` and `PACKAGE_MIRRORS`, which say how to reach the source rather
-than what it is, along with `PACKAGE_LICENSE` and `BREW_FORMULA_REVIEWED`.
-
-Changing how the fingerprint is computed would mark every bundle as stale.
-`refresh-fingerprints` restates them without building, and the `Build Services`
-workflow exposes it as a manual input. Check that the published bundles match
-the recipes before using it: it restates what they contain rather than verifying
-it.
-
-The build matrix compares the fingerprint alongside the version. It is computed
-for the target OS rather than the machine writing it, since one Linux runner
-writes the metadata for all of them.
-
-Windows entries are exempt: those bundles repackage upstream binaries and embed
-none of these recipes.
-
-### What the sync will not decide for you
-
-These are reported, never acted on. They land in a single tracking issue
-labelled `sync-attention`, updated in place each night and closed once nothing
-is left, because a run summary is not somewhere anyone looks.
-
-- A new major line, `postgresql@19` say, is reported in the job summary, never
-  added on its own.
-- Patches Homebrew applies from its own tap or inline in the formula cannot be
-  fetched, so they are counted and reported rather than replayed.
-- A recipe whose line no longer exists upstream is reported as unresolved and
-  left alone.
-
-## Provenance
-
-Every bundle carries a `PROVENANCE.txt` listing each component it was built
-from: version, licence, source archive and SHA-256 checksum. Several of these
-components are copyleft, Redis and MariaDB among them, and their licences
-require whoever receives the binary to be told where the corresponding source
-is. Nothing here is built from modified sources, so naming the exact upstream
-archive and its checksum answers that.
-
-The licence expressions come from the same place as the versions: the sync
-records `PACKAGE_LICENSE` from the formula, whether or not the version moved.
-
-## Provenance you can check
-
-Every archive is attested before it reaches R2, with
-`actions/attest-build-provenance`. The attestation ties the archive's SHA-256 to
-the commit, workflow and runner that produced it, and lives in GitHub's
-attestation store rather than in the bucket:
-
-```bash
-gh attestation verify redis-8.10.1-darwin-arm64.tar.gz --repo fadogen/binaries
-```
-
-This is what `PROVENANCE.txt` cannot do. That file states what a bundle was
-built from; the attestation proves who built it, and it is worth having because
-the checksum in the metadata is served by the very bucket that serves the
-binary. Compromise the bucket and both move together. The attestation does not,
-so a consumer can check the binary against something the bucket does not
-control.
+Pull requests run Unix packaging and runtime qualification without signing secrets,
+R2 writes or attestations. Windows keeps its existing vendor downloader and adds ZIP
+integrity, required executable and PE x64 checks. **These are structural checks, not
+Windows execution tests.** A missing release, source-only ZIP or incorrect layout
+fails instead of being published as a working runtime. The Redis community source
+is not equivalent to an official cross-platform Redis release.
 
 ## Tests
 
-```bash
-bats tests/                        # unit suite, runs against fixtures
-SKIP_NETWORK_TESTS=1 bats tests/   # same, without the live API checks
+```sh
+python3 -m unittest discover -s tests/python -v
+uvx ruff@0.16.7 check .github/scripts/package-services.py .github/scripts/native_packages tests/python
+uvx ruff@0.16.7 format --check .github/scripts/package-services.py .github/scripts/native_packages tests/python
 ```
+
+The offline regression suite covers dependency resolution, immutable inputs,
+partial publication, checksums, archive extraction, relocation, SQL launcher
+arguments and storage failures. Runtime qualification exercises initialization,
+TLS certificate verification (including rejection of an unrelated CA), SQL
+backup/restore, extensions, two independent instances and persistence after restart.
+PostgreSQL tests Perl on both Unix platforms and Tcl on macOS, matching Homebrew.
+Redis tests JSON, Bloom, Search and TimeSeries. MariaDB tests Mroonga and RocksDB
+where provided by the formula. MySQL uses classic SQL and disables its default
+shared X Plugin socket unless the caller overrides it.
+
+On macOS, sandbox-exec denies access to Homebrew and installed Fadogen runtimes.
+On Linux, all ELF bindings are checked against the package and an explicit system
+library allowlist; CI additionally hides Linuxbrew before execution. Linux still
+requires the distribution's glibc, C/C++ runtime and loader: this is not a promise
+of compatibility with every Linux distribution or Alpine/musl.
+
+See [the migration assessment](docs/native-packaging.md) for scope and evidence.
