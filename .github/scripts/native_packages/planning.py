@@ -82,3 +82,24 @@ def merge_results(metadata, results, packages):
         }
         seen.add(key)
     return merged
+
+
+def prune_metadata(metadata, config):
+    """Retain the configured catalogue independently of build filters or availability."""
+    retained = {}
+    for target in config["targets"]:
+        key = f"{target['os']}-{target['arch']}"
+        catalogue = metadata.get(key, {})
+        if not isinstance(catalogue, dict):
+            raise ValueError(f"Invalid service catalogue: {key}")
+        retained[key] = {}
+        for service, majors in config["services"].items():
+            if service in target.get("exclude", []) or service not in catalogue:
+                continue
+            versions = catalogue[service]
+            if not isinstance(versions, dict):
+                raise ValueError(f"Invalid service versions: {key}/{service}")
+            supported = {major: deepcopy(versions[major]) for major in majors if major in versions}
+            if supported:
+                retained[key][service] = supported
+    return retained

@@ -71,13 +71,18 @@ restated without building the corresponding archive.
 Each successful job tests the **final compressed archive** after extraction and
 movement to a path with spaces, then attests and uploads those exact bytes. Archive
 names include the full SHA-256. Only uploaded-success receipts reach the metadata
-job, which rereads the current metadata and merges those entries. Failed versions
-and other platforms remain intact. Production runs are serialized; storage access
+job, which rereads the current metadata and merges those entries. Supported entries
+whose replacement failed keep their published package. Production runs are serialized; storage access
 errors fail the job instead of replacing metadata with an empty object.
 
-Old content-addressed archives are retained. Immediate deletion would break a
-client still holding previous metadata. Retention/garbage collection needs a
-separate policy; this workflow does not pretend that storage growth is free.
+The publisher reconciles every catalogue with the configured services, majors and
+platforms, including runs with no rebuild or an OS filter. After publishing and
+rereading the current catalogues, it deletes retired platform catalogues and
+recognized service archives that are no longer referenced. The application is not
+released; no compatibility catalogue or historical archive retention is maintained.
+An unsuccessful publication or a different remote snapshot prevents cleanup.
+Unrelated R2 objects and archives belonging to PHP or independent utilities are
+outside its scope. `update-metadata` provides a local preview without deleting objects.
 GitHub stores small plans, receipts and test evidence for seven days, not the
 runtime archives or a permanent multi-gigabyte cache.
 

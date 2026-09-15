@@ -10,7 +10,14 @@ from pathlib import Path
 from native_packages.build import build, packager_digest
 from native_packages.common import digest, file_digest, read_json, write_json
 from native_packages.homebrew import FormulaAPI, Unavailable
-from native_packages.planning import fingerprint, identity, make_matrix, merge_results, validate_receipt
+from native_packages.planning import (
+    fingerprint,
+    identity,
+    make_matrix,
+    merge_results,
+    prune_metadata,
+    validate_receipt,
+)
 from native_packages.smoke import verify
 from native_packages.storage import Store
 from native_packages.vendor import build_windows, verify_windows
@@ -160,12 +167,31 @@ def verify_command(args):
 
 
 def update_metadata(args):
+    """Write a local preview; publication always reads a fresh remote catalogue."""
     before = load_metadata(args.metadata)
-    results = [read_json(path) for path in sorted(Path(args.receipts).glob("*.json"))]
-    after = merge_results(before, results, read_json(args.plan)["packages"])
+    after = prune_metadata(
+        merge_results(before, read_receipts(args.receipts), read_json(args.plan)["packages"]),
+        read_json(CONFIG),
+    )
+    for target in before.keys() - after.keys():
+        (Path(args.metadata) / f"metadata-services-{target}.json").unlink()
     for target, metadata in after.items():
         if metadata != before.get(target):
             write_json(Path(args.metadata) / f"metadata-services-{target}.json", metadata)
+
+
+def read_receipts(directory):
+    directory = Path(directory)
+    if not directory.is_dir():
+        raise ValueError(f"Receipt directory does not exist: {directory}")
+    return [read_json(path) for path in sorted(directory.glob("*.json"))]
+
+
+def publish_metadata(args):
+    report = store().reconcile_metadata(
+        read_json(CONFIG), read_json(args.plan)["packages"], read_receipts(args.receipts)
+    )
+    print(json.dumps(report, indent=2))
 
 
 def store():
@@ -210,7 +236,10 @@ def parser():
     verification.add_argument("--id", required=True)
     verification.add_argument("--output", default="dist")
     verification.set_defaults(handler=verify_command)
-    metadata = commands.add_parser("update-metadata")
+    metadata = commands.add_parser(
+        "update-metadata",
+        help="Preview the reconciled catalogue locally without publishing or deleting remote objects",
+    )
     metadata.add_argument("--plan", required=True)
     metadata.add_argument("--receipts", required=True)
     metadata.add_argument("--metadata", default=".")
@@ -224,8 +253,9 @@ def parser():
     upload.add_argument("--output", default="dist")
     upload.set_defaults(handler=publish_archive)
     publish = commands.add_parser("publish-metadata")
-    publish.add_argument("--metadata", default="metadata")
-    publish.set_defaults(handler=lambda args: store().publish_metadata(args.metadata))
+    publish.add_argument("--plan", required=True)
+    publish.add_argument("--receipts", required=True)
+    publish.set_defaults(handler=publish_metadata)
     return result
 
 

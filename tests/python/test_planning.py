@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / ".github/scripts"))
 from native_packages.homebrew import FormulaAPI, Unavailable, runtime_dependencies, select_bottle
-from native_packages.planning import archive_name, fingerprint, make_matrix, merge_results
+from native_packages.planning import archive_name, fingerprint, make_matrix, merge_results, prune_metadata
 
 
 def formula(name, version, *, deps=(), bottles=None, siblings=()):
@@ -106,6 +106,42 @@ class HomebrewTests(unittest.TestCase):
 
 
 class PublicationTests(unittest.TestCase):
+    def test_config_prunes_removed_targets_majors_services_and_exclusions(self):
+        retained = {"latest": "8.0.1", "filename": "redis-8.0.1-darwin-arm64.tar.gz"}
+        config = {
+            "services": {"redis": ["8"], "valkey": ["9"]},
+            "targets": [
+                {"os": "darwin", "arch": "arm64"},
+                {"os": "windows", "arch": "x86_64", "exclude": ["valkey"]},
+            ],
+        }
+        metadata = {
+            "darwin-arm64": {"redis": {"7": {}, "8": retained}, "mysql": {"8": {}}},
+            "darwin-x86_64": {"redis": {"8": retained}},
+            "windows-x86_64": {"valkey": {"9": {}}},
+        }
+        original = deepcopy(metadata)
+        self.assertEqual(
+            prune_metadata(metadata, config),
+            {"darwin-arm64": {"redis": {"8": retained}}, "windows-x86_64": {}},
+        )
+        self.assertEqual(metadata, original)
+
+    def test_filtered_or_unavailable_plan_does_not_remove_supported_catalogue_entries(self):
+        built = package()
+        config = {
+            "services": {"redis": ["8"], "valkey": ["9"]},
+            "targets": [{"os": "darwin", "arch": "arm64"}, {"os": "linux", "arch": "arm64"}],
+        }
+        retained = {"latest": "9.0.0", "filename": "valkey-9.0.0-linux-arm64.tar.gz"}
+        old = {"linux-arm64": {"valkey": {"9": retained}}}
+        after = prune_metadata(
+            merge_results(old, [{**built, "sha256": "c" * 64, "verified_sha256": "c" * 64}], [built]),
+            config,
+        )
+        self.assertEqual(after["linux-arm64"]["valkey"]["9"], retained)
+        self.assertIn("redis", after["darwin-arm64"])
+
     def test_published_result_carries_original_plan_when_upstream_changes(self):
         built = package()
         result = {**built, "sha256": "c" * 64, "verified_sha256": "c" * 64}

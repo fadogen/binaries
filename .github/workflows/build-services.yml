@@ -204,10 +204,10 @@ jobs:
           rm -f "$RUNNER_TEMP/certificate.p12"
 
   publish-metadata:
-    name: Publish successful platform entries
+    name: Publish current catalogue and remove obsolete archives
     runs-on: ubuntu-24.04
     needs: [plan, package]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.publish == 'true' && needs.plan.outputs.should-build == 'true' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.publish == 'true' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
@@ -216,11 +216,12 @@ jobs:
         with:
           name: package-plan
       - uses: actions/download-artifact@v7
+        if: needs.plan.outputs.should-build == 'true'
         with:
           pattern: published-${{ github.run_attempt }}-*
           path: receipts
           merge-multiple: true
-      - name: Merge receipts into freshly read metadata
+      - name: Reconcile the published catalogue before removing unreferenced archives
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -228,9 +229,8 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          uv run --locked --no-dev python .github/scripts/package-services.py fetch-metadata --metadata metadata
-          uv run --locked --no-dev python .github/scripts/package-services.py update-metadata --plan package-plan.json --receipts receipts --metadata metadata
-          uv run --locked --no-dev python .github/scripts/package-services.py publish-metadata --metadata metadata
+          mkdir -p receipts
+          uv run --locked --no-dev python .github/scripts/package-services.py publish-metadata --plan package-plan.json --receipts receipts
 
   catalogue:
     name: Report missing upstream targets
