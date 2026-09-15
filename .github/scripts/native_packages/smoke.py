@@ -130,6 +130,7 @@ class Instance:
         arguments = [
             self.root / "bin" / name,
             "--no-defaults",
+            "--default-character-set=utf8mb4",
             "--protocol=TCP",
             "--host=127.0.0.1",
             "--port=" + str(self.port),
@@ -474,6 +475,8 @@ def verify(package, archive, evidence):
         "archive_sha256": package["sha256"],
         "os": platform.system(),
         "arch": platform.machine(),
+        "platform": platform.platform(),
+        "verifier": file_digest(__file__),
         "tests": [
             "relocation-with-spaces",
             "initialization",
