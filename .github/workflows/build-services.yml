@@ -1,615 +1,254 @@
-name: "Build Services"
+name: Package Services
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+    - cron: '0 2 * * *'
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - '.github/scripts/native_packages/**'
+      - '.github/scripts/package-services.py'
+      - '.github/scripts/services-windows-downloader.sh'
+      - '.github/config/services.json'
+      - '.github/workflows/build-services.yml'
+      - '.github/actions/setup-uv/**'
+      - '.python-version'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  pull_request:
+    paths:
+      - '.github/scripts/native_packages/**'
+      - '.github/scripts/package-services.py'
+      - '.github/scripts/services-windows-downloader.sh'
+      - '.github/config/services.json'
+      - '.github/workflows/build-services.yml'
+      - '.github/actions/setup-uv/**'
+      - '.python-version'
+      - 'pyproject.toml'
+      - 'uv.lock'
   workflow_dispatch:
     inputs:
-      refresh_fingerprints:
-        description: 'Restate the dependency fingerprints of published bundles, without building anything'
-        required: false
-        default: false
-        type: boolean
-      skip_sync:
-        description: 'Build the recipes as they are, without syncing them with Homebrew first'
-        required: false
-        default: false
-        type: boolean
       force_rebuild:
-        description: 'Force rebuild services (space-separated, e.g. "mariadb" or "mariadb@12 postgresql@18")'
-        required: false
+        description: 'Repackage selected services even if inputs match (e.g. mariadb@12 redis)'
         default: ''
         type: string
       filter_os:
-        description: 'Filter by OS (leave empty for all)'
-        required: false
-        default: ''
+        description: 'Target OS'
+        default: all
         type: choice
-        options:
-          - ''
-          - 'darwin'
-          - 'linux'
-          - 'windows'
+        options: [all, darwin, linux, windows]
 
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+permissions:
+  contents: read
+
+# Production runs serialize planning, archive uploads and metadata merging.
+# A PR has its own group and never receives publishing credentials.
+concurrency:
+  group: services-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  refresh-fingerprints:
-    name: "Refresh dependency fingerprints"
-    runs-on: ubuntu-latest
+  plan:
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
-    if: inputs.refresh_fingerprints
-    permissions:
-      contents: write
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: us-east-1
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v6
-
-      - name: "Restate the fingerprints"
-        run: |
-          # Only run this when the published bundles are known to match the
-          # recipes: it restates what they contain rather than verifying it.
-          for os in darwin linux; do
-            for arch in arm64 x86_64; do
-              filename="metadata-services-${os}-${arch}.json"
-              aws s3 cp "s3://${{ secrets.R2_BUCKET_NAME }}/${filename}" "${filename}" \
-                --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1 || continue
-
-              .github/scripts/services-metadata-manager.sh refresh-fingerprints "$os" "$arch"
-
-              aws s3 cp "${filename}" "s3://${{ secrets.R2_BUCKET_NAME }}/${filename}" \
-                --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
-              echo "Uploaded ${filename}"
-            done
-          done
-
-  sync-upstream:
-    name: "Sync recipes with Homebrew"
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # A push is somebody's deliberate edit: never overwrite it. The sync owns
-    # the scheduled runs, where nobody is watching.
-    if: github.event_name != 'push' && inputs.skip_sync != true && !inputs.refresh_fingerprints
-    permissions:
-      contents: write
-      issues: write
     outputs:
-      sha: ${{ steps.commit.outputs.sha }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      should-build: ${{ steps.plan.outputs.should-build }}
+      publish: ${{ steps.mode.outputs.publish }}
     steps:
-      - name: "Checkout"
-        uses: actions/checkout@v6
-        with:
-          ref: main
-
-      - name: "Align recipes with the formulae they track"
-        run: .github/scripts/sync-upstream.sh apply > sync-report.json
-
-      - name: "Report what moved"
-        if: always()
-        run: |
-          # An empty report means the sync died before writing one; let its own
-          # error stand rather than masking it with a jq parse failure.
-          [[ -s sync-report.json ]] || exit 0
-          .github/scripts/sync-upstream.sh summary < sync-report.json >> "$GITHUB_STEP_SUMMARY"
-
-      - name: "Raise what needs a decision"
-        if: always()
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-uv
+      - id: mode
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          [[ -s sync-report.json ]] || exit 0
-
-          # One tracking issue, updated rather than reopened, so a standing
-          # signal does not become nightly noise. Closed when nothing is left.
-          body=$(.github/scripts/sync-upstream.sh attention < sync-report.json)
-          existing=$(gh issue list --label sync-attention --state open \
-            --json number --jq '.[0].number // empty')
-
-          if [[ -z "$body" ]]; then
-            if [[ -n "$existing" ]]; then
-              gh issue close "$existing" --comment "Nothing left for the sync to ask about."
-              echo "Closed #${existing}"
-            fi
-            exit 0
-          fi
-
-          if [[ -n "$existing" ]]; then
-            gh issue edit "$existing" --body "$body"
-            echo "Updated #${existing}"
-          else
-            gh issue create --title "Upstream sync needs decisions" \
-              --label sync-attention --body "$body"
-          fi
-
-      - name: "Commit and push"
-        id: commit
-        run: |
-          .github/scripts/sync-upstream.sh commit < sync-report.json
-
-          pushed=false
-          for attempt in 1 2 3; do
-            if git push; then
-              pushed=true
-              break
-            fi
-            echo "push rejected, rebasing (attempt ${attempt})"
-            git pull --rebase --autostash
-          done
-          if [[ "$pushed" != "true" ]]; then
-            echo "[ERROR] could not push the sync commit"
-            exit 1
-          fi
-
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-  check-and-sync:
-    name: "Check service versions and sync"
-    runs-on: ubuntu-latest
-    needs: [sync-upstream]
-    # The sync is skipped on push, which must not skip the build behind it.
-    if: always() && !inputs.refresh_fingerprints && needs.sync-upstream.result != 'failure' && needs.sync-upstream.result != 'cancelled'
-    outputs:
-      build-matrix: ${{ steps.check.outputs.build-matrix }}
-      should-build: ${{ steps.check.outputs.should-build }}
-      windows-matrix: ${{ steps.check.outputs.windows-matrix }}
-      should-build-windows: ${{ steps.check.outputs.should-build-windows }}
-      # Every downstream job reads the recipes at this exact commit.
-      sha: ${{ needs.sync-upstream.outputs.sha || github.sha }}
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: us-east-1
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.sync-upstream.outputs.sha || github.sha }}
-
-      - name: "Download metadata files from R2"
-        run: |
-          # Download metadata for all OS/architecture combinations
-          # Unix (darwin, linux) - arm64 and x86_64
-          for os in darwin linux; do
-            archs="arm64 x86_64"
-            for arch in $archs; do
-              filename="metadata-services-${os}-${arch}.json"
-              if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/${filename} ${filename} --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-                echo "Downloaded existing ${filename}"
-              else
-                echo "{}" > ${filename}
-                echo "Created empty ${filename}"
-              fi
-            done
-          done
-          # Windows - x86_64 only
-          filename="metadata-services-windows-x86_64.json"
-          if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/${filename} ${filename} --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-            echo "Downloaded existing ${filename}"
-          else
-            echo "{}" > ${filename}
-            echo "Created empty ${filename}"
-          fi
-
-      - name: "Check versions and generate build matrix"
-        id: check
+          PUBLISH: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        run: echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+      - name: Read published metadata
+        if: steps.mode.outputs.publish == 'true'
         env:
-          FORCE_REBUILD_SERVICES: ${{ github.event.inputs.force_rebuild }}
-          FILTER_OS: ${{ github.event.inputs.filter_os }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: uv run --locked --no-dev python .github/scripts/package-services.py fetch-metadata --metadata metadata
+      - name: Freeze upstream inputs
+        id: plan
+        env:
+          FORCE: ${{ inputs.force_rebuild }}
+          FILTER_OS: ${{ inputs.filter_os }}
+          EVENT: ${{ github.event_name }}
         run: |
-          .github/scripts/services-metadata-manager.sh check-versions
+          args=(--output package-plan.json --metadata metadata)
+          if [[ -n "$FILTER_OS" && "$FILTER_OS" != all ]]; then
+            args+=(--os "$FILTER_OS")
+          fi
+          if [[ -n "$FORCE" ]]; then
+            read -r -a services <<< "$FORCE"
+            args+=(--force "${services[@]}")
+          fi
+          # Windows retains its vendor sources; PR runtime qualification covers
+          # the Unix engines replaced here. Windows retains a structural gate.
+          [[ "$EVENT" != pull_request ]] || args+=(--native-only)
+          uv run --locked --no-dev python .github/scripts/package-services.py plan "${args[@]}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: package-plan
+          overwrite: true
+          path: package-plan.json
+          retention-days: 7
 
-  build-service:
-    name: "Build ${{ matrix.service }} ${{ matrix.version }} (${{ matrix.os }}/${{ matrix.arch }})"
-    runs-on: ${{ matrix.runs-on }}
-    needs: [check-and-sync]
-    # sync-upstream is skipped on push, and GitHub propagates that skip down the
-    # graph unless the job says otherwise. Without this, a full build matrix is
-    # computed and then silently dropped.
-    if: ${{ !cancelled() && needs.check-and-sync.result == 'success' && needs.check-and-sync.outputs.should-build == 'true' }}
-    timeout-minutes: 240
-    continue-on-error: true
+  package:
+    name: ${{ matrix.id }}
+    needs: plan
+    if: needs.plan.outputs.should-build == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
     permissions:
       contents: read
       id-token: write
       attestations: write
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: us-east-1
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.check-and-sync.outputs.build-matrix) }}
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
-      - name: "Checkout"
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-uv
+      - uses: actions/download-artifact@v7
         with:
-          ref: ${{ needs.check-and-sync.outputs.sha }}
-
-      # ========================================
-      # macOS: Setup and build from source
-      # ========================================
-      - name: "[macOS] Update Homebrew"
-        if: matrix.os == 'darwin'
+          name: package-plan
+      - name: Install ELF packaging tools
+        if: matrix.os == 'linux'
         run: |
-          echo "Updating Homebrew..."
-          brew update >/dev/null 2>&1
-          echo "Homebrew updated"
-
-      - name: "[macOS] Install bash via Homebrew"
-        if: matrix.os == 'darwin'
-        run: |
-          echo "Installing bash..."
-          brew install bash
-          if [[ -d "/opt/homebrew/bin" ]]; then
-            echo "/opt/homebrew/bin" >> $GITHUB_PATH
-            echo "Bash installed: $(/opt/homebrew/bin/bash --version | head -1)"
-          else
-            echo "/usr/local/bin" >> $GITHUB_PATH
-            echo "Bash installed: $(/usr/local/bin/bash --version | head -1)"
-          fi
-
-      - name: "[macOS] Build from source"
-        if: matrix.os == 'darwin'
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends patchelf binutils
+      - name: Import signing certificate into an isolated keychain
+        if: matrix.os == 'darwin' && needs.plan.outputs.publish == 'true'
         env:
-          ARCH: ${{ matrix.arch }}
-        run: .github/scripts/build-from-recipes.sh "${{ matrix.recipe }}"
-
-      - name: "[macOS] Import signing certificate"
-        if: matrix.os == 'darwin'
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          CERTIFICATE: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
-          security import $RUNNER_TEMP/certificate.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-          rm $RUNNER_TEMP/certificate.p12
-          echo "Signing certificate imported"
-
-      - name: "[macOS] Sign binaries"
-        if: matrix.os == 'darwin'
+          keychain="$RUNNER_TEMP/services-signing.keychain-db"
+          password=$(openssl rand -hex 32)
+          echo "::add-mask::$password"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$P12_PASSWORD" -T /usr/bin/codesign -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain"
+          rm "$RUNNER_TEMP/certificate.p12"
+          echo "SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+      - name: Assemble the planned runtime
         env:
-          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+          PACKAGE_ID: ${{ matrix.id }}
+          TARGET_OS: ${{ matrix.os }}
+          PUBLISH: ${{ needs.plan.outputs.publish }}
+          SIGNING_IDENTITY: ${{ needs.plan.outputs.publish == 'true' && secrets.SIGNING_IDENTITY || '' }}
         run: |
-          SERVICE="${{ matrix.service }}"
-          VERSION="${{ matrix.version }}"
-          OS="${{ matrix.os }}"
-          ARCH="${{ matrix.arch }}"
-          BUNDLE_DIR="${SERVICE}-${VERSION}"
-          ARCHIVE_NAME="${SERVICE}-${VERSION}-${OS}-${ARCH}.tar.gz"
-
-          tar -xzf "${ARCHIVE_NAME}"
-          .github/scripts/sign-binaries.sh "$SERVICE" "$BUNDLE_DIR"
-          rm "${ARCHIVE_NAME}"
-          tar -czf "${ARCHIVE_NAME}" "$BUNDLE_DIR"
-          rm -rf "$BUNDLE_DIR"
-          echo "Binaries signed and archive recreated"
-
-      # ========================================
-      # Linux: Build from source
-      # ========================================
-      - name: "[Linux] Create /opt/fadogen directory"
+          args=(--plan package-plan.json --id "$PACKAGE_ID" --output dist)
+          if [[ "$TARGET_OS" == darwin && "$PUBLISH" == true ]]; then
+            : "${SIGNING_IDENTITY:?Missing Developer ID signing identity}"
+            args+=(--signing-identity "$SIGNING_IDENTITY" --keychain "$SIGNING_KEYCHAIN")
+          fi
+          uv run --locked --no-dev python .github/scripts/package-services.py build "${args[@]}"
+      - name: Make Linuxbrew unavailable on the disposable runner
         if: matrix.os == 'linux'
         run: |
-          sudo mkdir -p /opt/fadogen
-          sudo chown "$(whoami)" /opt/fadogen
-
-      - name: "[Linux] Update Homebrew"
-        if: matrix.os == 'linux'
-        run: |
-          # brew isn't in PATH by default on Linux runners; source shellenv first
-          # (same pattern as build-from-recipes.sh line 46)
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          echo "Updating Homebrew..."
-          brew update >/dev/null 2>&1
-          echo "Homebrew updated"
-
-      - name: "[Linux] Build from source"
-        if: matrix.os == 'linux'
+          if [[ -d /home/linuxbrew/.linuxbrew ]]; then
+            sudo mv /home/linuxbrew/.linuxbrew "$RUNNER_TEMP/linuxbrew-disabled"
+          fi
+      - name: Verify the final archive after relocation
+        id: verify
         env:
-          ARCH: ${{ matrix.arch }}
-        run: .github/scripts/build-from-recipes.sh "${{ matrix.recipe }}"
-
-      # ========================================
-      # Common: attest, then upload
-      # ========================================
-      - name: "Attest build provenance"
+          PACKAGE_ID: ${{ matrix.id }}
+        run: uv run --locked --no-dev python .github/scripts/package-services.py verify --plan package-plan.json --id "$PACKAGE_ID" --output dist
+      - name: Attest the verified archive
+        if: needs.plan.outputs.publish == 'true'
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: "${{ matrix.service }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
-
-      - name: "Upload archive to R2 with SHA-256 checksum"
-        shell: bash
-        run: |
-          SERVICE="${{ matrix.service }}"
-          VERSION="${{ matrix.version }}"
-          MAJOR="${{ matrix.major }}"
-          OS="${{ matrix.os }}"
-          ARCH="${{ matrix.arch }}"
-          ARCHIVE_NAME="${SERVICE}-${VERSION}-${OS}-${ARCH}.tar.gz"
-
-          if [[ ! -f "$ARCHIVE_NAME" ]]; then
-            echo "[ERROR] Archive not found: $ARCHIVE_NAME"
-            exit 1
-          fi
-
-          # Upload with native SHA-256 checksum
-          UPLOAD_RESULT=$(aws s3api put-object \
-            --bucket ${{ secrets.R2_BUCKET_NAME }} \
-            --key "$ARCHIVE_NAME" \
-            --body "$ARCHIVE_NAME" \
-            --endpoint-url ${{ secrets.R2_ENDPOINT }} \
-            --checksum-algorithm SHA256 \
-            --metadata service="$SERVICE",version="$VERSION",major="$MAJOR",os="$OS",arch="$ARCH" \
-            --output json)
-
-          # Extract checksum from upload response and convert to hex
-          CHECKSUM_BASE64=$(echo "$UPLOAD_RESULT" | jq -r '.ChecksumSHA256')
-          CHECKSUM_HEX=$(echo "$CHECKSUM_BASE64" | base64 -d | xxd -p -c 256)
-
-          echo "Uploaded $ARCHIVE_NAME (SHA-256: $CHECKSUM_HEX)"
-
-          # Save checksum info (format: service,version,major,sha256,filename)
-          echo "${SERVICE},${VERSION},${MAJOR},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-${SERVICE}-${VERSION}-${OS}-${ARCH}.txt
-
-      - name: "Upload checksum info"
+          subject-path: ${{ steps.verify.outputs.archive }}
+      - name: Publish this successful archive
+        if: needs.plan.outputs.publish == 'true'
+        env:
+          PACKAGE_ID: ${{ matrix.id }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: uv run --locked --no-dev python .github/scripts/package-services.py publish-archive --plan package-plan.json --id "$PACKAGE_ID" --output dist
+      - name: Record a published success for metadata merging
+        if: needs.plan.outputs.publish == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: checksum-${{ matrix.service }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}
-          path: checksum-${{ matrix.service }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}.txt
-          retention-days: 1
-
-  # ========================================
-  # Windows: Download pre-built binaries
-  # ========================================
-  build-windows:
-    name: "Download ${{ matrix.service }} ${{ matrix.version }} (Windows)"
-    runs-on: ubuntu-latest
-    needs: [check-and-sync]
-    if: ${{ !cancelled() && needs.check-and-sync.result == 'success' && needs.check-and-sync.outputs.should-build-windows == 'true' }}
-    timeout-minutes: 30
-    continue-on-error: true
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: us-east-1
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.check-and-sync.outputs.windows-matrix) }}
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.check-and-sync.outputs.sha }}
-
-      - name: "Download and repackage Windows binaries"
-        run: |
-          .github/scripts/services-windows-downloader.sh "${{ matrix.service }}" "${{ matrix.version }}"
-
-      # Attested before it reaches R2: an archive nobody vouched for should not
-      # be published at all.
-      - name: "Attest build provenance"
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: "${{ matrix.service }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip"
-
-      - name: "Upload archive to R2 with SHA-256 checksum"
-        run: |
-          SERVICE="${{ matrix.service }}"
-          VERSION="${{ matrix.version }}"
-          MAJOR="${{ matrix.major }}"
-          OS="${{ matrix.os }}"
-          ARCH="${{ matrix.arch }}"
-          ARCHIVE_NAME="${SERVICE}-${VERSION}-${OS}-${ARCH}.zip"
-
-          if [[ ! -f "$ARCHIVE_NAME" ]]; then
-            echo "[ERROR] Archive not found: $ARCHIVE_NAME"
-            exit 1
-          fi
-
-          # Upload with native SHA-256 checksum
-          UPLOAD_RESULT=$(aws s3api put-object \
-            --bucket ${{ secrets.R2_BUCKET_NAME }} \
-            --key "$ARCHIVE_NAME" \
-            --body "$ARCHIVE_NAME" \
-            --endpoint-url ${{ secrets.R2_ENDPOINT }} \
-            --checksum-algorithm SHA256 \
-            --metadata service="$SERVICE",version="$VERSION",major="$MAJOR",os="$OS",arch="$ARCH" \
-            --output json)
-
-          # Extract checksum from upload response and convert to hex
-          CHECKSUM_BASE64=$(echo "$UPLOAD_RESULT" | jq -r '.ChecksumSHA256')
-          CHECKSUM_HEX=$(echo "$CHECKSUM_BASE64" | base64 -d | xxd -p -c 256)
-
-          echo "Uploaded $ARCHIVE_NAME (SHA-256: $CHECKSUM_HEX)"
-
-          # Save checksum info (format: service,version,major,sha256,filename)
-          echo "${SERVICE},${VERSION},${MAJOR},${CHECKSUM_HEX},${ARCHIVE_NAME}" > checksum-${SERVICE}-${VERSION}-${OS}-${ARCH}.txt
-
-      - name: "Upload checksum info"
+          name: published-${{ github.run_attempt }}-${{ matrix.id }}
+          path: dist/${{ matrix.id }}.json
+          retention-days: 7
+      - name: Preserve qualification evidence
+        if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: checksum-${{ matrix.service }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}
-          path: checksum-${{ matrix.service }}-${{ matrix.version }}-${{ matrix.os }}-${{ matrix.arch }}.txt
-          retention-days: 1
-
-  update-metadata:
-    name: "Update metadata files"
-    runs-on: ubuntu-latest
-    needs: [check-and-sync, build-service, build-windows]
-    if: ${{ !cancelled() && (needs.check-and-sync.outputs.should-build == 'true' || needs.check-and-sync.outputs.should-build-windows == 'true') }}
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: us-east-1
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v6
-
-      - name: "Download metadata files from R2"
+          name: proof-${{ github.run_attempt }}-${{ matrix.id }}
+          path: |
+            dist/*-evidence/**
+            dist/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove the temporary signing keychain
+        if: always() && matrix.os == 'darwin' && needs.plan.outputs.publish == 'true'
         run: |
-          # A pristine copy is kept next to each file so the upload step can tell
-          # what this run actually changed.
-          for os in darwin linux; do
-            archs="arm64 x86_64"
-            for arch in $archs; do
-              filename="metadata-services-${os}-${arch}.json"
-              if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/${filename} ${filename} --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-                echo "Downloaded existing ${filename}"
-              else
-                echo "{}" > ${filename}
-              fi
-              cp "${filename}" "${filename}.orig"
-            done
-          done
-          # Windows - x86_64 only
-          filename="metadata-services-windows-x86_64.json"
-          if aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/${filename} ${filename} --endpoint-url ${{ secrets.R2_ENDPOINT }} 2>/dev/null; then
-            echo "Downloaded existing ${filename}"
-          else
-            echo "{}" > ${filename}
+          if [[ -e "$RUNNER_TEMP/services-signing.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/services-signing.keychain-db"
           fi
-          cp "${filename}" "${filename}.orig"
+          rm -f "$RUNNER_TEMP/certificate.p12"
 
-      - name: "Download all checksum artifacts"
-        uses: actions/download-artifact@v7
+  publish-metadata:
+    name: Publish current catalogue and remove obsolete archives
+    runs-on: ubuntu-24.04
+    needs: [plan, package]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.publish == 'true' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-uv
+      - uses: actions/download-artifact@v7
         with:
-          pattern: checksum-*
+          name: package-plan
+      - uses: actions/download-artifact@v7
+        if: needs.plan.outputs.should-build == 'true'
+        with:
+          pattern: published-${{ github.run_attempt }}-*
+          path: receipts
           merge-multiple: true
-
-      - name: "Update metadata"
+      - name: Reconcile the published catalogue before removing unreferenced archives
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          # Update metadata for Unix (darwin, linux)
-          for os in darwin linux; do
-            archs="arm64 x86_64"
-            for arch in $archs; do
-              # Filter checksums for this OS/architecture and update metadata
-              grep -h "\-${os}-${arch}\.tar\.gz$" checksum-*.txt 2>/dev/null | \
-                .github/scripts/services-metadata-manager.sh update-metadata "$os" "$arch" || true
-            done
-          done
-          # Update metadata for Windows (zip format)
-          grep -h "\-windows-x86_64\.zip$" checksum-*.txt 2>/dev/null | \
-            .github/scripts/services-metadata-manager.sh update-metadata "windows" "x86_64" || true
+          mkdir -p receipts
+          uv run --locked --no-dev python .github/scripts/package-services.py publish-metadata --plan package-plan.json --receipts receipts
 
-      - name: "Upload metadata files to R2"
-        run: |
-          # Only push what this run changed. Reuploading an untouched file
-          # overwrites whatever another run wrote in the meantime, which is how
-          # a refresh got silently reverted by a cancelled run.
-          upload_if_changed() {
-            local filename="$1"
-            if cmp -s "${filename}" "${filename}.orig"; then
-              echo "Unchanged, not uploading ${filename}"
-              return 0
-            fi
-            aws s3 cp ${filename} s3://${{ secrets.R2_BUCKET_NAME }}/${filename} --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null
-            echo "Uploaded ${filename}"
-          }
-
-          for os in darwin linux; do
-            for arch in arm64 x86_64; do
-              upload_if_changed "metadata-services-${os}-${arch}.json"
-            done
-          done
-          upload_if_changed "metadata-services-windows-x86_64.json"
-
-  cleanup-old-builds:
-    name: "Cleanup old service builds"
-    runs-on: ubuntu-latest
-    needs: [update-metadata]
-    if: ${{ !cancelled() && needs.update-metadata.result == 'success' }}
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: us-east-1
+  catalogue:
+    name: Report missing upstream targets
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - name: "Checkout"
-        uses: actions/checkout@v6
-
-      - name: "Download metadata files from R2"
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-uv
+      - uses: actions/download-artifact@v7
+        with:
+          name: package-plan
+      - name: Require an available source for every requested target
         run: |
-          # Unix (darwin, linux)
-          for os in darwin linux; do
-            archs="arm64 x86_64"
-            for arch in $archs; do
-              filename="metadata-services-${os}-${arch}.json"
-              aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/${filename} ${filename} --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1 || echo "{}" > ${filename}
-            done
-          done
-          # Windows
-          filename="metadata-services-windows-x86_64.json"
-          aws s3 cp s3://${{ secrets.R2_BUCKET_NAME }}/${filename} ${filename} --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1 || echo "{}" > ${filename}
-
-      - name: "Cleanup old builds"
-        run: |
-          source .github/config/services-config.sh
-
-          # Cleanup function for a specific OS/architecture
-          cleanup_for_os_arch() {
-            local os="$1"
-            local arch="$2"
-            local extension="$3"  # tar.gz for Unix, zip for Windows
-
-            echo "=== Cleaning up old builds for $os/$arch ==="
-            local metadata_file="metadata-services-${os}-${arch}.json"
-
-            # Extract service-major pairs from metadata
-            jq -r 'to_entries[] | .key as $service | .value | to_entries[] | "\($service),\(.key)"' "$metadata_file" 2>/dev/null | sort -u | while IFS=',' read -r service major; do
-              CURRENT_FILENAME=$(jq -r ".\"$service\".\"$major\".filename // \"\"" "$metadata_file")
-
-              if [[ -z "$CURRENT_FILENAME" ]]; then
-                continue
-              fi
-
-              # Single-version services: delete ALL versions
-              # Multi-version services: delete only same major
-              if is_single_version_service "$service" 2>/dev/null; then
-                PREFIX="${service}-"
-              else
-                PREFIX="${service}-${major}."
-              fi
-
-              # List and delete old files matching prefix AND os/architecture
-              aws s3api list-objects-v2 \
-                --bucket ${{ secrets.R2_BUCKET_NAME }} \
-                --prefix "$PREFIX" \
-                --endpoint-url ${{ secrets.R2_ENDPOINT }} \
-                --query 'Contents[].Key' \
-                --output text 2>/dev/null | tr '\t' '\n' | grep "\-${os}-${arch}\.${extension}$" | while read -r file_key; do
-                if [[ "$file_key" != "$CURRENT_FILENAME" ]] && [[ "$file_key" != "None" ]] && [[ -n "$file_key" ]]; then
-                  if aws s3 rm s3://${{ secrets.R2_BUCKET_NAME }}/"$file_key" --endpoint-url ${{ secrets.R2_ENDPOINT }} >/dev/null 2>&1; then
-                    echo "Deleted old build: $file_key"
-                  fi
-                fi
-              done
-            done
-          }
-
-          # Cleanup Unix builds (tar.gz)
-          for os in darwin linux; do
-            for arch in arm64 x86_64; do
-              cleanup_for_os_arch "$os" "$arch" "tar.gz"
-            done
-          done
-
-          # Cleanup Windows builds (zip)
-          cleanup_for_os_arch "windows" "x86_64" "zip"
+          uv run --locked --no-dev python - <<'PYTHON'
+          import json
+          plan = json.load(open('package-plan.json'))
+          for entry in plan['unavailable']:
+              print(entry)
+          raise SystemExit(bool(plan['unavailable']))
+          PYTHON

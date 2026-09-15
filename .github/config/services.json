@@ -1,0 +1,28 @@
+{
+  "services": {
+    "mariadb": ["10", "11", "12"],
+    "mysql": ["8", "9"],
+    "postgresql": ["14", "15", "16", "17", "18"],
+    "redis": ["8"],
+    "valkey": ["9"]
+  },
+  "targets": [
+    {
+      "os": "darwin", "arch": "arm64", "runner": "macos-26",
+      "tags": ["arm64_sonoma", "arm64_sequoia", "arm64_tahoe"],
+      "engine": "homebrew"
+    },
+    {
+      "os": "linux", "arch": "arm64", "runner": "ubuntu-24.04-arm",
+      "tags": ["arm64_linux"], "engine": "homebrew"
+    },
+    {
+      "os": "linux", "arch": "x86_64", "runner": "ubuntu-24.04",
+      "tags": ["x86_64_linux"], "engine": "homebrew"
+    },
+    {
+      "os": "windows", "arch": "x86_64", "runner": "ubuntu-24.04",
+      "engine": "vendor", "exclude": ["valkey"]
+    }
+  ]
+}

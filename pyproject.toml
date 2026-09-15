@@ -1,0 +1,23 @@
+[project]
+name = "fadogen-native-packages"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["ruff==0.16.7"]
+
+[tool.uv]
+required-version = "==0.12.14"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+include = [".github/scripts/package-services.py", ".github/scripts/native_packages/*.py", "tests/python/*.py"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# unittest discovery loads these directly, so the source path is set before imports.
+"tests/python/*.py" = ["E402"]

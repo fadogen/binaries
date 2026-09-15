@@ -27,6 +27,8 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v6
 
+      - uses: ./.github/actions/setup-uv
+
       - name: "Fetch FrankenPHP supported versions"
         run: |
           echo "Fetching serversideup PHP versions config..."
@@ -71,7 +73,7 @@ jobs:
           echo "Fetching Windows PHP releases..."
           curl -fsSL https://windows.php.net/downloads/releases/releases.json > windows_releases.json
 
-          python3 .github/scripts/php_build_manager.py check-versions
+          uv run --locked --no-dev python .github/scripts/php_build_manager.py check-versions
           cat github_output.txt >> "$GITHUB_OUTPUT"
 
   build:
@@ -90,6 +92,8 @@ jobs:
     steps:
       - name: "Checkout"
         uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-uv
 
       - name: "Select latest Xcode"
         if: matrix.os == 'darwin'
@@ -212,7 +216,7 @@ jobs:
 
       - name: "Create and Upload PHP archive to R2 with SHA-256"
         run: |
-          python3 .github/scripts/php_build_manager.py create-archive \
+          uv run --locked --no-dev python .github/scripts/php_build_manager.py create-archive \
             --php-version ${{ matrix.full-version }} \
             --os ${{ matrix.os }} \
             --arch ${{ matrix.arch }}
@@ -268,14 +272,11 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v6
 
-      - name: "Setup Python"
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - uses: ./.github/actions/setup-uv
 
       - name: "Download and repackage PHP"
         run: |
-          python3 .github/scripts/php_build_manager.py create-windows-archive \
+          uv run --locked --no-dev python .github/scripts/php_build_manager.py create-windows-archive \
             --php-version ${{ matrix.php-version }} \
             --full-version ${{ matrix.full-version }}
 
@@ -332,6 +333,8 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v6
 
+      - uses: ./.github/actions/setup-uv
+
       - name: "Download checksums"
         uses: actions/download-artifact@v7
         with:
@@ -367,7 +370,7 @@ jobs:
 
           SUPPORTED_VERSIONS='${{ needs.check-and-sync.outputs.supported-versions }}'
 
-          python3 .github/scripts/php_build_manager.py update-metadata \
+          uv run --locked --no-dev python .github/scripts/php_build_manager.py update-metadata \
             --build-matrix "$BUILD_MATRIX" \
             --archive-checksums "$ALL_CHECKSUMS" \
             --supported-versions "$SUPPORTED_VERSIONS" \
