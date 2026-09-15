@@ -335,8 +335,9 @@ class Instance:
             )
         else:
             tool = "mariadb-dump" if self.service == "mariadb" else "mysqldump"
+            options = ["--set-gtid-purged=OFF"] if self.service == "mysql" else []
             backup = self.command(
-                [*self.client(tool), "--single-transaction", "qualification"], label="dump"
+                [*self.client(tool), "--single-transaction", *options, "qualification"], label="dump"
             ).stdout
             self.query("CREATE DATABASE restored")
             self.command([*self.client(), "restored"], content=backup, label="restore")

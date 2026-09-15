@@ -88,6 +88,21 @@ class PackagingTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         self.assertEqual(first, locations["one"] / "lib/libcommon.dylib")
 
+    def test_postgresql_shared_prefix_can_refer_to_libpq_outside_the_extension_folder(self):
+        keg = self.root / "Cellar/postgresql@14/14.23"
+        (keg / "lib/postgresql").mkdir(parents=True)
+        (keg / "lib/libpq.5.dylib").touch()
+        (keg / "lib/postgresql/hstore.so").touch()
+        locations = {"postgresql@14": keg}
+        self.assertEqual(
+            dependency_target("@@HOMEBREW_PREFIX@@/lib/postgresql@14/libpq.5.dylib", locations),
+            keg / "lib/libpq.5.dylib",
+        )
+        self.assertEqual(
+            dependency_target("@@HOMEBREW_PREFIX@@/lib/postgresql@14/hstore.so", locations),
+            keg / "lib/postgresql/hstore.so",
+        )
+
     def test_unresolved_application_dependency_fails_instead_of_using_host_brew(self):
         with self.assertRaises(ValueError):
             dependency_target("/opt/homebrew/opt/missing/lib/x.dylib", {})

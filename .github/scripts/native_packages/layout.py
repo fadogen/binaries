@@ -54,7 +54,13 @@ def dependency_target(reference, locations):
                     raise ValueError(f"Unresolved Homebrew dependency: {reference}")
                 return None
             name, suffix = matched.groups()
-            suffix = "lib/postgresql/" + suffix
+            if name not in locations:
+                raise ValueError(f"Missing dependency bottle: {reference}")
+            candidates = [locations[name] / folder / suffix for folder in ["lib/postgresql", "lib"]]
+            present = [path for path in candidates if path.exists()]
+            if len(present) != 1:
+                raise ValueError(f"Missing or ambiguous PostgreSQL runtime file: {reference}")
+            return present[0]
     if name not in locations:
         raise ValueError(f"Missing dependency bottle: {reference}")
     destination = locations[name] / suffix
