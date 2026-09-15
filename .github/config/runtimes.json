@@ -1,0 +1,9 @@
+{
+  "tools": ["composer", "garage", "typesense", "sshpass", "reverb"],
+  "targets": [
+    {"os": "darwin", "arch": "arm64", "runner": "macos-26", "tags": ["arm64_tahoe", "arm64_sequoia", "arm64_sonoma"]},
+    {"os": "linux", "arch": "arm64", "runner": "ubuntu-24.04-arm", "tags": ["arm64_linux"]},
+    {"os": "linux", "arch": "x86_64", "runner": "ubuntu-24.04", "tags": ["x86_64_linux"]}
+  ],
+  "reverb_repository": "fadogen/laravel-reverb"
+}

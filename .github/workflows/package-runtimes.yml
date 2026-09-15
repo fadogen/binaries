@@ -1,0 +1,239 @@
+name: Package Runtimes
+
+on:
+  workflow_call:
+    inputs:
+      php:
+        type: boolean
+        default: false
+      tool:
+        type: string
+        default: all
+      force:
+        type: boolean
+        default: false
+      publish:
+        type: boolean
+        default: false
+  schedule:
+    - cron: '23 4 * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/runtime_packages/**'
+      - '.github/scripts/package-runtimes.py'
+      - '.github/config/runtimes.json'
+      - '.github/scripts/native_packages/**'
+      - '.github/workflows/package-runtimes.yml'
+      - '.github/actions/**'
+  pull_request:
+    paths:
+      - '.github/scripts/**'
+      - '.github/config/runtimes.json'
+      - '.github/workflows/package-runtimes.yml'
+      - '.github/actions/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: Runtime to check
+        type: choice
+        default: all
+        options: [all, composer, garage, typesense, sshpass, reverb]
+      force:
+        description: Repackage even when inputs are unchanged
+        type: boolean
+        default: false
+      publish:
+        description: Publish verified archives (main only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-runtimes-${{ inputs.php && 'php' || 'tools' }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      should-build: ${{ steps.plan.outputs.should-build }}
+      publish: ${{ steps.mode.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-uv
+      - uses: actions/cache@v5
+        with:
+          path: .cache/runtimes
+          key: runtime-sources-${{ inputs.php && 'php' || 'tools' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: runtime-sources-${{ inputs.php && 'php' || 'tools' }}-
+      - id: mode
+        env:
+          PUBLISH: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'push' || inputs.publish) }}
+        run: echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+      - name: Resolve immutable inputs and compare published packages
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          TOOL: ${{ inputs.tool }}
+          FORCE: ${{ inputs.force }}
+          PUBLISH: ${{ steps.mode.outputs.publish }}
+          PHP_CATALOGUE: ${{ inputs.php }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          args=()
+          [[ "$PHP_CATALOGUE" != true ]] || args+=(--php)
+          [[ -z "$TOOL" || "$TOOL" == all ]] || args+=(--tools "$TOOL")
+          [[ "$FORCE" != true && "$EVENT" != pull_request ]] || args+=(--force)
+          [[ "$PUBLISH" != true ]] || args+=(--remote)
+          uv run --locked --no-dev python .github/scripts/package-runtimes.py plan "${args[@]}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: runtime-plan
+          path: runtime-plan.json
+          retention-days: 7
+
+  package:
+    name: ${{ matrix.id }}
+    needs: plan
+    if: needs.plan.outputs.should-build == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.engine == 'spc' && 90 || 25 }}
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-uv
+      - uses: actions/download-artifact@v7
+        with:
+          name: runtime-plan
+      - name: Set up the PHP interpreter for portable PHP packages
+        if: matrix.os == 'any'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:2
+          coverage: none
+      - name: Install ELF packaging tools
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends patchelf binutils
+      - name: Resolve PHP build inputs and skip unchanged compilations
+        id: prepare
+        env:
+          PACKAGE_ID: ${{ matrix.id }}
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --locked --no-dev python .github/scripts/package-runtimes.py prepare --id "$PACKAGE_ID"
+      - uses: ./.github/actions/signing-keychain
+        if: steps.prepare.outputs.should-build == 'true' && matrix.os == 'darwin' && needs.plan.outputs.publish == 'true'
+        with:
+          certificate: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          password: ${{ secrets.P12_PASSWORD }}
+      - name: Assemble exactly the planned runtime
+        if: steps.prepare.outputs.should-build == 'true'
+        env:
+          PACKAGE_ID: ${{ matrix.id }}
+          TARGET_OS: ${{ matrix.os }}
+          PUBLISH: ${{ needs.plan.outputs.publish }}
+          SIGNING_IDENTITY: ${{ needs.plan.outputs.publish == 'true' && secrets.SIGNING_IDENTITY || '' }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          args=(--id "$PACKAGE_ID")
+          if [[ "$TARGET_OS" == darwin && "$PUBLISH" == true ]]; then
+            : "${SIGNING_IDENTITY:?Missing Developer ID signing identity}"
+            args+=(--signing-identity "$SIGNING_IDENTITY" --keychain "$SIGNING_KEYCHAIN")
+          fi
+          uv run --locked --no-dev python .github/scripts/package-runtimes.py build "${args[@]}"
+      - name: Hide Linuxbrew on the disposable runner
+        if: steps.prepare.outputs.should-build == 'true' && matrix.os == 'linux'
+        run: |
+          if [[ -d /home/linuxbrew/.linuxbrew ]]; then
+            sudo mv /home/linuxbrew/.linuxbrew "$RUNNER_TEMP/linuxbrew-disabled"
+          fi
+      - name: Exercise the final archive after extraction and relocation
+        if: steps.prepare.outputs.should-build == 'true'
+        id: verify
+        env:
+          PACKAGE_ID: ${{ matrix.id }}
+        run: uv run --locked --no-dev python .github/scripts/package-runtimes.py verify --id "$PACKAGE_ID"
+      - uses: actions/attest-build-provenance@v4
+        if: steps.prepare.outputs.should-build == 'true' && needs.plan.outputs.publish == 'true'
+        with:
+          subject-path: ${{ steps.verify.outputs.archive }}
+      - name: Publish this verified archive
+        if: steps.prepare.outputs.should-build == 'true' && needs.plan.outputs.publish == 'true'
+        env:
+          PACKAGE_ID: ${{ matrix.id }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: uv run --locked --no-dev python .github/scripts/package-runtimes.py publish-archive --id "$PACKAGE_ID"
+      - uses: actions/upload-artifact@v6
+        if: steps.prepare.outputs.should-build == 'true' && needs.plan.outputs.publish == 'true'
+        with:
+          name: runtime-published-${{ github.run_attempt }}-${{ matrix.id }}
+          path: dist/runtimes/${{ matrix.id }}.json
+          retention-days: 7
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: runtime-proof-${{ github.run_attempt }}-${{ matrix.id }}
+          path: |
+            dist/runtimes/*-evidence/**
+            dist/runtimes/*.json
+            dist/runtimes/inputs/**
+            .cache/php-build/log/**
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove the temporary signing keychain
+        if: always() && env.SIGNING_KEYCHAIN != ''
+        run: security delete-keychain "$SIGNING_KEYCHAIN"
+
+  publish:
+    name: Reconcile runtime catalogues
+    needs: [plan, package]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-uv
+      - uses: actions/download-artifact@v7
+        with:
+          name: runtime-plan
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: runtime-published-${{ github.run_attempt }}-*
+          path: dist/runtimes
+          merge-multiple: true
+      - name: Switch catalogues, verify remote state, and remove unreferenced archives
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: uv run --locked --no-dev python .github/scripts/package-runtimes.py publish-metadata
