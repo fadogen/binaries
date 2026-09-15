@@ -1,0 +1,48 @@
+name: Package PHP
+
+on:
+  schedule:
+    - cron: '47 3 * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/**'
+      - '.github/config/php.json'
+      - '.github/config/services.json'
+      - '.github/actions/**'
+      - '.github/workflows/package-php.yml'
+      - '.github/workflows/package-runtimes.yml'
+  pull_request:
+    paths:
+      - '.github/scripts/**'
+      - '.github/config/php.json'
+      - '.github/config/services.json'
+      - '.github/actions/**'
+      - '.github/workflows/package-php.yml'
+      - '.github/workflows/package-runtimes.yml'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Compile even when sources are unchanged
+        type: boolean
+        default: false
+      publish:
+        description: Publish verified packages (main only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  php:
+    uses: ./.github/workflows/package-runtimes.yml
+    secrets: inherit
+    with:
+      php: true
+      force: ${{ inputs.force || false }}
+      publish: ${{ inputs.publish || false }}
