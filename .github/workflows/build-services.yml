@@ -87,6 +87,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: package-plan
+          overwrite: true
           path: package-plan.json
           retention-days: 7
 
@@ -177,14 +178,14 @@ jobs:
         if: needs.plan.outputs.publish == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: published-${{ matrix.id }}
+          name: published-${{ github.run_attempt }}-${{ matrix.id }}
           path: dist/${{ matrix.id }}.json
           retention-days: 7
       - name: Preserve qualification evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: proof-${{ matrix.id }}
+          name: proof-${{ github.run_attempt }}-${{ matrix.id }}
           path: |
             dist/*-evidence/**
             dist/*.json
@@ -214,7 +215,7 @@ jobs:
           name: package-plan
       - uses: actions/download-artifact@v7
         with:
-          pattern: published-*
+          pattern: published-${{ github.run_attempt }}-*
           path: receipts
           merge-multiple: true
       - name: Merge receipts into freshly read metadata

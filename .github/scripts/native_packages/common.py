@@ -3,7 +3,10 @@
 import hashlib
 import json
 import subprocess
+import time
+from http.client import IncompleteRead
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 
 
 def digest(value):
@@ -32,3 +35,16 @@ def run(arguments, **kwargs):
     if result.returncode:
         raise RuntimeError(f"{arguments[0]} exited {result.returncode}: {result.stderr.strip()}")
     return result.stdout
+
+
+def retry_network(operation, attempts=3):
+    """Retry interrupted transfers, rate limits and temporary upstream failures."""
+    for attempt in range(attempts):
+        try:
+            return operation()
+        except (URLError, ConnectionError, TimeoutError, IncompleteRead) as error:
+            if isinstance(error, HTTPError) and error.code != 429 and error.code < 500:
+                raise
+            if attempt == attempts - 1:
+                raise
+            time.sleep(2**attempt)

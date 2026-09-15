@@ -77,6 +77,8 @@ class Instance:
             "LC_ALL": "C",
             "TMPDIR": str(scratch),
         }
+        if self.service == "postgresql":
+            self.environment["PGHOSTADDR"] = "127.0.0.1"
         self.cert = scratch / "cert.pem"
         self.key = scratch / "key.pem"
         self.database = "postgres" if self.service == "postgresql" else None
@@ -105,11 +107,11 @@ class Instance:
             return [
                 self.root / "bin" / (executable or "psql"),
                 "-h",
-                "127.0.0.1",
+                "localhost",
                 "-p",
                 str(self.port),
                 "-U",
-                "postgres",
+                "root",
             ]
         if self.service in {"redis", "valkey"}:
             return [
@@ -163,8 +165,9 @@ class Instance:
                     "-D",
                     self.data,
                     "-U",
-                    "postgres",
-                    "--auth=trust",
+                    "root",
+                    "--auth-local=trust",
+                    "--auth-host=trust",
                     "--locale=C",
                     "--encoding=UTF8",
                 ],
@@ -309,7 +312,9 @@ class Instance:
                 )
                 if self.service == "mariadb":
                     self.query(
-                        "INSTALL SONAME 'ha_mroonga'; CREATE TABLE qualification.mroonga(id INT PRIMARY KEY, value TEXT) ENGINE=Mroonga; INSERT INTO qualification.mroonga VALUES (1,'test')"
+                        "INSTALL SONAME 'ha_mroonga'; CREATE TABLE qualification.mroonga(id INT PRIMARY KEY, value TEXT, "
+                        "FULLTEXT INDEX(value) COMMENT 'tokenizer \"TokenMecab\"') ENGINE=Mroonga; "
+                        "INSERT INTO qualification.mroonga VALUES (1,'test')"
                     )
                     if (self.root / "lib/plugin/ha_rocksdb.so").exists():
                         self.query(
@@ -362,6 +367,12 @@ class Instance:
                 require(self.query(f"SELECT value FROM {database}.marker").stdout.strip() == self.marker)
                 if self.service == "mariadb":
                     require(self.query(f"SELECT value FROM {database}.mroonga").stdout.strip() == "test")
+                    require(
+                        self.query(
+                            f"SELECT COUNT(*) FROM {database}.mroonga WHERE MATCH(value) AGAINST ('test')"
+                        ).stdout.strip()
+                        == "1"
+                    )
                     if (self.root / "lib/plugin/ha_rocksdb.so").exists():
                         require(self.query(f"SELECT value FROM {database}.rocks").stdout.strip() == "test")
             paths = self.query("SELECT @@socket,@@plugin_dir").stdout.strip().split("\t")
@@ -426,7 +437,7 @@ def verify(package, archive, evidence):
         extracted.mkdir()
         with tarfile.open(archive) as source:
             source.extractall(extracted, filter="data")
-        root = scratch / "relocated package with spaces"
+        root = scratch / "relocated package é with spaces"
         (extracted / f"{package['service']}-{package['version']}").rename(root)
         extracted.rmdir()
         if platform.system() == "Linux":

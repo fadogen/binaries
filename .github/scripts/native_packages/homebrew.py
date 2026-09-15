@@ -6,6 +6,8 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from .common import retry_network
+
 
 class Unavailable(ValueError):
     """An upstream formula or target bottle is not published."""
@@ -53,8 +55,12 @@ class FormulaAPI:
                 f"{self.base}/{quote(name, safe='@')}.json", headers={"User-Agent": "Fadogen-Binaries"}
             )
             try:
-                with urlopen(request, timeout=60) as response:
-                    self.documents[name] = json.load(response)
+
+                def download():
+                    with urlopen(request, timeout=60) as response:
+                        return json.load(response)
+
+                self.documents[name] = retry_network(download)
             except HTTPError as error:
                 if error.code == 404:
                     raise Unavailable(f"Unknown formula: {name}") from error

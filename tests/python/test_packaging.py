@@ -184,6 +184,22 @@ class PackagingTests(unittest.TestCase):
         )
         self.assertEqual(path.read_bytes(), content)
 
+    def test_interrupted_download_is_retried_without_reusing_partial_bytes(self):
+        class Interrupted(io.BytesIO):
+            def read(self, count=-1):
+                if self.tell():
+                    raise ConnectionResetError("peer reset")
+                return super().read(count)
+
+        payload = b"complete archive"
+        sha = hashlib.sha256(payload).hexdigest()
+        with patch(
+            "native_packages.download.urlopen", side_effect=[Interrupted(b"partial"), io.BytesIO(payload)]
+        ):
+            result = Downloader(self.root / "cache").fetch("https://example.test/bottle", sha)
+        self.assertEqual(result.read_bytes(), payload)
+        self.assertEqual(list((self.root / "cache").iterdir()), [result])
+
     def test_cached_download_is_reverified(self):
         source = self.root / "source"
         source.write_bytes(b"correct")

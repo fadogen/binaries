@@ -100,7 +100,8 @@ arguments and storage failures. Runtime qualification exercises initialization,
 TLS certificate verification (including rejection of an unrelated CA), SQL
 backup/restore, extensions, two independent instances and persistence after restart.
 PostgreSQL tests Perl on both Unix platforms and Tcl on macOS, matching Homebrew.
-Redis tests JSON, Bloom, Search and TimeSeries. MariaDB tests Mroonga and RocksDB
+Linux PostgreSQL launchers also resolve the bundled Perl module directories.
+Redis tests JSON, Bloom, Search and TimeSeries. MariaDB tests Mroonga full-text search with TokenMecab and RocksDB
 where provided by the formula. MySQL uses classic SQL and disables its default
 shared X Plugin socket unless the caller overrides it.
 

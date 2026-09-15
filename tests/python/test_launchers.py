@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / ".github/scripts"))
-from native_packages.launchers import install_launcher, patch_mariadb_installer
+from native_packages.launchers import install_launcher, install_postgres_launchers, patch_mariadb_installer
 
 
 class LauncherTests(unittest.TestCase):
@@ -61,6 +61,32 @@ class LauncherTests(unittest.TestCase):
         args = subprocess.check_output([str(moved / "bin/server"), "--version"]).decode().split("\0")
         self.assertIn("--basedir=" + str(moved), args)
         self.assertFalse(original.exists())
+
+    def test_postgres_tools_use_the_moved_private_perl_tree(self):
+        perl = self.root / "Cellar/perl/5.44/lib/perl5/5.44"
+        (perl / "aarch64-linux-thread-multi").mkdir(parents=True)
+        (perl / "strict.pm").touch()
+        (perl / "aarch64-linux-thread-multi/Config.pm").touch()
+        (perl / "aarch64-linux-thread-multi/Config_heavy.pl").touch()
+        (perl / "Net").mkdir()
+        (perl / "Net/Config.pm").touch()
+        keg = self.native.parent.parent
+        for name in ["postgres", "pg_ctl"]:
+            path = keg / "bin" / name
+            path.write_text('#!/bin/sh\nprintf "%s\\n" "$PERL5LIB" "$@"\n')
+            path.chmod(0o755)
+        install_postgres_launchers(self.root, keg, self.root / "Cellar/perl/5.44")
+        moved = self.root / "relocated package é"
+        moved.mkdir()
+        for name in ["bin", "Cellar"]:
+            (self.root / name).rename(moved / name)
+        for name in ["postgres", "pg_ctl"]:
+            output = subprocess.check_output([str(moved / "bin" / name), "--version"], text=True)
+            libraries, argument = output.splitlines()
+            self.assertEqual(argument, "--version")
+            self.assertIn(str(moved / "Cellar/perl/5.44/lib/perl5/5.44"), libraries.split(":"))
+            self.assertNotIn("homebrew", libraries)
+            self.assertTrue(all(Path(path).exists() for path in libraries.split(":")))
 
     def test_installer_patch_is_guarded_against_upstream_drift(self):
         path = self.root / "mariadb-install-db"

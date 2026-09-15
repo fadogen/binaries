@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
-from .common import file_digest
+from .common import file_digest, retry_network
 
 
 class Downloader:
@@ -36,19 +36,27 @@ class Downloader:
             repository = match[1]
             if repository not in self.tokens:
                 query = urlencode({"service": "ghcr.io", "scope": f"repository:{repository}:pull"})
-                with urlopen("https://ghcr.io/token?" + query, timeout=60) as response:
-                    self.tokens[repository] = json.load(response)["token"]
+
+                def token():
+                    with urlopen("https://ghcr.io/token?" + query, timeout=60) as response:
+                        return json.load(response)["token"]
+
+                self.tokens[repository] = retry_network(token)
             headers["Authorization"] = "Bearer " + self.tokens[repository]
-        temporary = None
-        try:
-            with tempfile.NamedTemporaryFile(dir=self.cache, delete=False) as output:
-                temporary = Path(output.name)
-                with urlopen(Request(url, headers=headers), timeout=120) as response:
-                    shutil.copyfileobj(response, output, length=1024 * 1024)
-            if file_digest(temporary) != checksum:
-                raise ValueError(f"Checksum mismatch for {url}")
-            temporary.replace(destination)
-        finally:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
-        return destination
+
+        def download():
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(dir=self.cache, delete=False) as output:
+                    temporary = Path(output.name)
+                    with urlopen(Request(url, headers=headers), timeout=120) as response:
+                        shutil.copyfileobj(response, output, length=1024 * 1024)
+                if file_digest(temporary) != checksum:
+                    raise ValueError(f"Checksum mismatch for {url}")
+                temporary.replace(destination)
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+            return destination
+
+        return retry_network(download)

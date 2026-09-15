@@ -9,7 +9,7 @@ from .common import file_digest, run
 from .planning import archive_name
 
 EXECUTABLES = {
-    "mariadb": ["bin/mariadbd.exe", "bin/mariadb.exe", "bin/mariadb-install-db.exe"],
+    "mariadb": ["bin/mariadbd.exe", "bin/mariadb.exe", "bin/mysql_install_db.exe"],
     "mysql": ["bin/mysqld.exe", "bin/mysql.exe"],
     "postgresql": ["bin/postgres.exe", "bin/initdb.exe", "bin/psql.exe"],
     "redis": ["redis-server.exe", "redis-cli.exe"],

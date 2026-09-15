@@ -49,7 +49,9 @@ and data directory. MariaDB has two narrowly guarded installer quoting changes.
 It also pre-registers `#rocksdb` with `--ignore-db-dir`, the configuration used in the
 previous functional qualification. The MySQL recipe being replaced did not enable
 MeCab; vendor-only optional modules are not implicitly added to the new contract.
-No global Homebrew prefix or user configuration is rewritten.
+PostgreSQL and pg_ctl on Linux export the private Perl module paths before
+initializing the embedded interpreter. No global Homebrew prefix or user
+configuration is rewritten.
 
 The metadata schema (`latest`, `sha256`, `filename`, `deps`) stays the same. Archive
 names become content-addressed. The first release rebuilds the configured catalogue

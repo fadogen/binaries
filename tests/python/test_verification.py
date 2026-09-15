@@ -36,6 +36,19 @@ class VerificationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "executable"):
                 verify_windows({"service": "redis", "version": "8.10.1"}, archive)
 
+    def test_windows_mariadb_initialization_matches_the_app_executable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "mariadb.zip"
+            header = bytearray(90)
+            header[:2] = b"MZ"
+            struct.pack_into("<I", header, 0x3C, 64)
+            header[64:68] = b"PE\0\0"
+            struct.pack_into("<H", header, 68, 0x8664)
+            with zipfile.ZipFile(archive, "w") as output:
+                for name in ["mariadbd.exe", "mariadb.exe", "mysql_install_db.exe"]:
+                    output.writestr("mariadb-12.3.3/bin/" + name, header)
+            self.assertTrue(verify_windows({"service": "mariadb", "version": "12.3.3"}, archive)["pass"])
+
     def test_windows_pe_must_target_x64(self):
         with tempfile.TemporaryDirectory() as directory:
             for machine in [0x8664, 0xAA64]:

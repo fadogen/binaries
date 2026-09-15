@@ -7,7 +7,7 @@ from pathlib import Path
 from .archive import create_archive, extract_bottle
 from .common import digest, file_digest, write_json
 from .download import Downloader
-from .launchers import install_launcher, patch_mariadb_installer
+from .launchers import install_launcher, install_postgres_launchers, patch_mariadb_installer
 from .layout import expose_service, relative_link, repair_links, trim_keg
 from .planning import archive_name
 from .relocate import relocate_elf, relocate_macho, sign_macho
@@ -42,6 +42,8 @@ def assemble(package, root, cache, *, signing_identity="-", keychain=None):
         install_launcher(root, root / "bin" / executable, keg / "bin" / executable, package["service"])
     if package["service"] == "mariadb":
         patch_mariadb_installer(keg / "bin/mariadb-install-db")
+    if package["os"] == "linux" and package["service"] == "postgresql":
+        install_postgres_launchers(root, keg, locations["perl"])
     repair_links(root, locations)
     if package["os"] == "darwin":
         relocation = relocate_macho(root, locations)
