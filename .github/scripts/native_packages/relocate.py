@@ -125,7 +125,7 @@ def relocate_elf(root, locations, arch):
         needed = run(["patchelf", "--print-needed", path]).splitlines()
         directories, changes = set(), []
         for reference in needed:
-            if reference in SYSTEM_ELF:
+            if reference in SYSTEM_ELF and reference not in index:
                 continue
             target = dependency_target(reference, locations)
             if target is None:

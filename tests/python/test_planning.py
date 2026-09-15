@@ -80,6 +80,20 @@ class HomebrewTests(unittest.TestCase):
         doc = formula("data", "1", bottles={"all": {"sha256": "a" * 64, "url": "https://example.test/data"}})
         self.assertEqual(select_bottle(doc, ["arm64_linux"])[0], "all")
 
+    def test_linux_plan_includes_only_the_implicit_compiler_runtime(self):
+        bottles = {"arm64_linux": {"url": "https://example.test/bottle", "sha256": "a" * 64}}
+        api = FormulaAPI(
+            documents={
+                "server": formula("server", "1", bottles=bottles),
+                "gcc": formula("gcc", "16.2.0", deps=["gmp"], bottles=bottles),
+            }
+        )
+        components = api.closure("server", ["arm64_linux"])
+        compiler = next(item for item in components if item["name"] == "gcc")
+        self.assertEqual(compiler["role"], "compiler-runtime")
+        self.assertEqual(compiler["dependencies"], [])
+        self.assertEqual({item["name"] for item in components}, {"server", "gcc"})
+
     def test_dependency_cycle_is_reported(self):
         api = FormulaAPI(
             documents={

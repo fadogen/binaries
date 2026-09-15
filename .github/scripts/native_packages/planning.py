@@ -15,7 +15,11 @@ def fingerprint(package):
     # A tap commit changes for unrelated formulae. Only bottle bytes and runtime
     # selection affect the package; provenance remains in the full frozen plan.
     inputs["components"] = [
-        {key: component[key] for key in ["name", "version", "revision", "tag", "sha256"] if key in component}
+        {
+            key: component[key]
+            for key in ["name", "version", "revision", "tag", "sha256", "role"]
+            if key in component
+        }
         for component in package["components"]
     ]
     return digest(inputs)

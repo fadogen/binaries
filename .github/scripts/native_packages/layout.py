@@ -8,10 +8,12 @@ PREFIX = r"(?:@@HOMEBREW_PREFIX@@|/opt/homebrew|/usr/local|/home/linuxbrew/\.lin
 CELLAR = rf"(?:@@HOMEBREW_CELLAR@@|{PREFIX}/Cellar)"
 
 
-def runtime_files(path):
+def runtime_files(path, component=None):
     path = Path(path)
     if re.match(r"^(?:LICENSE|LICENCE|COPYING|COPYRIGHT|NOTICE)(?:[._-]|$)", path.name, re.IGNORECASE):
         return True
+    if component and component.get("role") == "compiler-runtime":
+        return bool(re.fullmatch(r"lib(?:atomic|gcc_s|stdc\+\+|gomp)\.so(?:\.[0-9]+)*", path.name))
     if path.name == "rcmysql":
         return False
     excluded = {
@@ -56,7 +58,9 @@ def dependency_target(reference, locations):
             name, suffix = matched.groups()
             if name not in locations:
                 raise ValueError(f"Missing dependency bottle: {reference}")
-            candidates = [locations[name] / folder / suffix for folder in ["lib/postgresql", "lib"]]
+            candidates = [
+                locations[name] / folder / suffix for folder in [f"lib/{name}", "lib/postgresql", "lib"]
+            ]
             present = [path for path in candidates if path.exists()]
             if len(present) != 1:
                 raise ValueError(f"Missing or ambiguous PostgreSQL runtime file: {reference}")

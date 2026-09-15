@@ -81,8 +81,33 @@ class FormulaAPI:
             raise Unavailable(f"No maintained formula serves {service}@{major}")
         return max(matching, key=lambda item: item[0])[1]
 
+    def component(self, name, tags, *, role=None):
+        document = self.get(name)
+        tag, bottle = select_bottle(document, tags)
+        dependencies = (
+            []
+            if role == "compiler-runtime"
+            else runtime_dependencies(document, tags[0] if tag == "all" else tag)
+        )
+        return {
+            "name": document["name"],
+            "version": document["versions"]["stable"],
+            "revision": document.get("revision", 0),
+            "tag": tag,
+            "url": bottle["url"],
+            "sha256": bottle["sha256"],
+            "license": document.get("license"),
+            "source": document.get("urls", {}).get("stable", {}),
+            "formula_commit": document.get("tap_git_head"),
+            "formula_path": document.get("ruby_source_path"),
+            "formula_checksum": document.get("ruby_source_checksum"),
+            "dependencies": dependencies,
+            "role": role,
+        }
+
     def closure(self, formula, tags):
         ordered, visited, visiting = [], set(), set()
+        linux = any(tag.endswith("_linux") for tag in tags)
 
         def visit(name):
             if name in visiting:
@@ -90,29 +115,18 @@ class FormulaAPI:
             if name in visited:
                 return
             visiting.add(name)
-            document = self.get(name)
-            tag, bottle = select_bottle(document, tags)
-            dependencies = runtime_dependencies(document, tags[0] if tag == "all" else tag)
-            for dependency in dependencies:
-                visit(dependency)
-            ordered.append(
-                {
-                    "name": document["name"],
-                    "version": document["versions"]["stable"],
-                    "revision": document.get("revision", 0),
-                    "tag": tag,
-                    "url": bottle["url"],
-                    "sha256": bottle["sha256"],
-                    "license": document.get("license"),
-                    "source": document.get("urls", {}).get("stable", {}),
-                    "formula_commit": document.get("tap_git_head"),
-                    "formula_path": document.get("ruby_source_path"),
-                    "formula_checksum": document.get("ruby_source_checksum"),
-                    "dependencies": dependencies,
-                }
+            component = self.component(
+                name, tags, role="compiler-runtime" if name == "gcc" and linux else None
             )
+            for dependency in component["dependencies"]:
+                visit(dependency)
+            ordered.append(component)
             visiting.remove(name)
             visited.add(name)
 
         visit(formula)
+        if linux:
+            # Homebrew implicitly supplies GCC runtimes on Linux. Keep the shared
+            # libraries, not the compiler executable or its toolchain dependencies.
+            visit("gcc")
         return ordered

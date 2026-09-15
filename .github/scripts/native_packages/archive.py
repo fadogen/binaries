@@ -25,7 +25,7 @@ def extract_bottle(source, cellar, component):
 
         def runtime_filter(member, destination):
             path = PurePosixPath(member.name)
-            if path.is_relative_to(expected) and not runtime_files(path.relative_to(expected)):
+            if path.is_relative_to(expected) and not runtime_files(path.relative_to(expected), component):
                 return None
             return tarfile.data_filter(member, destination)
 

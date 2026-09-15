@@ -103,6 +103,31 @@ class PackagingTests(unittest.TestCase):
             keg / "lib/postgresql/hstore.so",
         )
 
+    def test_postgresql14_library_directory_can_keep_the_versioned_formula_name(self):
+        keg = self.root / "Cellar/postgresql@14/14.24"
+        (keg / "lib/postgresql@14").mkdir(parents=True)
+        (keg / "lib/postgresql@14/libpq.5.dylib").touch()
+        self.assertEqual(
+            dependency_target("@@HOMEBREW_PREFIX@@/lib/postgresql@14/libpq.5.dylib", {"postgresql@14": keg}),
+            keg / "lib/postgresql@14/libpq.5.dylib",
+        )
+
+    def test_compiler_bottle_contributes_shared_runtimes_without_compiler_tools(self):
+        component = {"role": "compiler-runtime"}
+        for path in [
+            "lib/gcc/current/libatomic.so.1",
+            "lib/gcc/current/libstdc++.so.6.0.35",
+            "COPYING.RUNTIME",
+        ]:
+            self.assertTrue(runtime_files(Path(path), component))
+        for path in [
+            "bin/gcc-16",
+            "libexec/gcc/cc1plus",
+            "lib/gcc/current/libstdc++.a",
+            "share/info/gcc.info",
+        ]:
+            self.assertFalse(runtime_files(Path(path), component))
+
     def test_unresolved_application_dependency_fails_instead_of_using_host_brew(self):
         with self.assertRaises(ValueError):
             dependency_target("/opt/homebrew/opt/missing/lib/x.dylib", {})

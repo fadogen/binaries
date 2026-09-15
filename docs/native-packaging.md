@@ -40,7 +40,9 @@ matching that plan and verification digest.
 Runtime kegs remain distinct, preserving relative PostgreSQL resource lookup and
 avoiding accidental overwrites of similarly named libraries. Mach-O dependencies
 become `@loader_path` references. ELF dependencies use `$ORIGIN` paths and the
-system interpreter. Unresolved or ambiguous dependencies are errors.
+system interpreter. Linux also bundles GCC's shared runtimes, including libatomic,
+without retaining the compiler or its build-tool dependency tree. Unresolved or
+ambiguous dependencies are errors.
 
 SQL wrappers compute `basedir`, plugin, socket and PID paths relative to the package
 and data directory. MariaDB has two narrowly guarded installer quoting changes.
