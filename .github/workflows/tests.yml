@@ -15,16 +15,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v7
+      - uses: ./.github/actions/setup-uv
         with:
-          python-version: '3.14'
+          dev: 'true'
       - name: Unit and regression tests (offline)
-        run: python -m unittest discover -s tests/python -v
-      - name: Install lint tool
-        run: python -m pip install --group dev
+        run: uv run --locked python -m unittest discover -s tests/python -v
       - name: Check Python style
         run: |
-          ruff check .github/scripts/package-services.py .github/scripts/native_packages tests/python
-          ruff format --check .github/scripts/package-services.py .github/scripts/native_packages tests/python
+          uv run --locked ruff check .github/scripts/package-services.py .github/scripts/native_packages tests/python
+          uv run --locked ruff format --check .github/scripts/package-services.py .github/scripts/native_packages tests/python
       - name: Check remaining shell entry points
         run: shellcheck --severity=warning .github/scripts/*.sh

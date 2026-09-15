@@ -29,18 +29,20 @@ architectures. These choices do not change the other workflows' platform policy.
 
 ## Build and verify locally
 
-Python 3.12+ is the only Python runtime dependency. Run on the target architecture:
+The scripts use only the Python standard library. Install uv at the version pinned
+in `pyproject.toml`, then run `uv sync --locked --managed-python` to install the
+Python version pinned in `.python-version` and the tools in `uv.lock`. Run on the target architecture:
 macOS needs `otool`, `install_name_tool` and `codesign`; Linux needs `patchelf`,
 `readelf` and `ldd`. Functional tests also use the system `openssl`. Homebrew itself
 is not invoked or installed by the packager.
 
 ```sh
-python3 .github/scripts/package-services.py plan \
+uv run --locked --no-dev python .github/scripts/package-services.py plan \
   --services postgresql --majors 18 --os darwin --arch arm64 \
   --output package-plan.json
-python3 .github/scripts/package-services.py build \
+uv run --locked --no-dev python .github/scripts/package-services.py build \
   --plan package-plan.json --id postgresql-18-darwin-arm64
-python3 .github/scripts/package-services.py verify \
+uv run --locked --no-dev python .github/scripts/package-services.py verify \
   --plan package-plan.json --id postgresql-18-darwin-arm64
 ```
 
@@ -86,12 +88,23 @@ Windows execution tests.** A missing release, source-only ZIP or incorrect layou
 fails instead of being published as a working runtime. The Redis community source
 is not equivalent to an official cross-platform Redis release.
 
+## Python environment
+
+All Python workflow steps, including the PHP build manager, use the shared
+`.github/actions/setup-uv` action. Its Astral action revision is pinned, uv reads its
+required version from `pyproject.toml`, and Python reads `.python-version`.
+`uv sync --locked` rejects a missing or stale lockfile. Commands use `uv run --locked`;
+packaging excludes development dependencies, while the test job installs the locked
+Ruff release. Only the test job enables the small dependency cache. No global Python
+environment is modified. Python or tool upgrades are explicit repository changes,
+separate from the daily refresh of Homebrew runtime components.
+
 ## Tests
 
 ```sh
-python3 -m unittest discover -s tests/python -v
-uvx ruff@0.16.7 check .github/scripts/package-services.py .github/scripts/native_packages tests/python
-uvx ruff@0.16.7 format --check .github/scripts/package-services.py .github/scripts/native_packages tests/python
+uv run --locked python -m unittest discover -s tests/python -v
+uv run --locked ruff check .github/scripts/package-services.py .github/scripts/native_packages tests/python
+uv run --locked ruff format --check .github/scripts/package-services.py .github/scripts/native_packages tests/python
 ```
 
 The offline regression suite covers dependency resolution, immutable inputs,
