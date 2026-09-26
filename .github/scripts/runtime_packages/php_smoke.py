@@ -27,6 +27,7 @@ def fastcgi_request(port, script):
         "SCRIPT_FILENAME": str(script),
         "SERVER_PROTOCOL": "HTTP/1.1",
         "GATEWAY_INTERFACE": "CGI/1.1",
+        "REDIRECT_STATUS": "1",
     }.items():
         name, value = name.encode(), value.encode()
         parameters += encoded_length(len(name)) + encoded_length(len(value)) + name + value
@@ -153,26 +154,18 @@ echo json_encode([
                 require(result[extension] == package[extension], f"Wrong {extension} version")
 
     check(json.loads(harness.command([cli, *options, probe])))
+    port = free_port()
     if windows:
-        for _ in range(2):
-            response = harness.command(
-                [harness.root / "php-cgi.exe", *options],
-                env={
-                    "REDIRECT_STATUS": "1",
-                    "REQUEST_METHOD": "GET",
-                    "SCRIPT_FILENAME": str(probe),
-                },
-            )
-            check(parse_cgi(response))
+        arguments = [harness.root / "php-cgi.exe", *options, "-b", f"127.0.0.1:{port}"]
     else:
-        port = free_port()
         config = harness.scratch / "php-fpm.conf"
         config.write_text(
             "[global]\ndaemonize = no\nerror_log = /dev/stderr\n[qualification]\n"
             f"listen = 127.0.0.1:{port}\npm = static\npm.max_children = 1\ncatch_workers_output = yes\n"
         )
-        for _ in range(2):
-            process = harness.start([harness.root / "php-fpm", *options, "--fpm-config", config])
-            result = wait_ready(process, lambda: fastcgi_request(port, probe))
-            check(result)
-            harness.stop(process)
+        arguments = [harness.root / "php-fpm", *options, "--fpm-config", config]
+    for _ in range(2):
+        process = harness.start(arguments)
+        result = wait_ready(process, lambda: fastcgi_request(port, probe))
+        check(result)
+        harness.stop(process)
