@@ -56,7 +56,7 @@ def assemble_runtime(package, root, cache, *, signing_identity="-", keychain=Non
             relocate_elf(root, {}, package["arch"])
     elif package["engine"] == "composer":
         tool = next(row for row in package["components"] if row["name"] == "composer")
-        composer = Downloader(cache).fetch(tool["url"], tool["sha256"])
+        composer = Downloader(cache).fetch(tool["url"], tool["sha256"]).resolve()
         php = os.environ.get("PHP_BINARY") or shutil.which("php")
         if php is None:
             raise RuntimeError("PHP is required to install Reverb's locked dependencies")
