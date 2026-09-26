@@ -14,9 +14,14 @@ from native_packages.archive import create_archive
 from native_packages.common import digest, file_digest, read_json, run, write_json
 from native_packages.download import Downloader
 from native_packages.planning import archive_name, fingerprint, identity, validate_receipt
-from native_packages.relocate import MACHO, binary_files, sign_macho
+from native_packages.relocate import MACHO, binary_files, relocate_elf, sign_macho
 
 from .sources import SourceCache, get_json, request, windows_php_source
+
+# c-client links libxcrypt dynamically, and distributions disagree on whether
+# libcrypt.so.1 is installed. Fadogen's installer keeps only the executables and
+# extensions/, so the build host's copy travels there with its copyright notice.
+HOST_ELF = {"libcrypt.so.1": ("libxcrypt", Path("/usr/share/doc/libcrypt1/copyright"))}
 
 
 def php_packager_digest():
@@ -232,6 +237,19 @@ def prepare(package, workspace, cache):
     return resolved_package(package, sources)
 
 
+def bundle_host_libraries(root):
+    needed = set()
+    for path in binary_files(root, {b"\x7fELF"}):
+        needed.update(run(["patchelf", "--print-needed", path]).splitlines())
+    for name in sorted(needed.intersection(HOST_ELF)):
+        project, notice = HOST_ELF[name]
+        source = Path(run(["gcc", f"-print-file-name={name}"]).strip())
+        if not source.is_absolute() or not source.is_file():
+            raise ValueError(f"Missing build host library: {name}")
+        shutil.copyfile(source.resolve(), root / "extensions" / name)
+        shutil.copyfile(notice, root / "license" / f"{project}.copyright")
+
+
 def build_native(package, workspace, output, *, signing_identity="-", keychain=None):
     if package["packager"] != php_packager_digest():
         raise ValueError("PHP packager changed after planning")
@@ -285,6 +303,9 @@ def build_native(package, workspace, output, *, signing_identity="-", keychain=N
             if not (extensions / f"{name}.so").is_file():
                 raise ValueError(f"Missing shared PHP extension: {name}")
         shutil.copytree(workspace / "buildroot/license", root / "license")
+        if package["os"] == "linux":
+            bundle_host_libraries(root)
+            relocate_elf(root, {}, package["arch"])
         write_json(root / "PROVENANCE.json", package)
         if package["os"] == "darwin":
             sign_macho(root, signing_identity, keychain)

@@ -30,6 +30,9 @@ disjoint object namespaces; services retain their own namespace.
   download selection excludes suggestions, matching the build's extension set.
   SPC's own source mirror remains available when a dependency site is unreachable;
   the resulting bytes are included in the source snapshot before any compilation.
+  Linux PHP carries the build host's `libcrypt.so.1` in `extensions/` with its
+  notice: c-client links it dynamically, not every distribution installs that
+  soname, and Fadogen's installer keeps only the executables and `extensions/`.
 - Windows PHP keeps the official NTS x64 ZIP. The manifest determines its compiler
   ABI; Xdebug and Redis versions and bytes are included in the fingerprint.
 - All macOS packaging targets ARM64 on macOS 26 runners. Linux uses Ubuntu 24.04
