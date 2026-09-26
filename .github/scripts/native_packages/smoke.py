@@ -28,10 +28,12 @@ def check_linux_bindings(root, output):
         match = re.search(r"(?:=>\s+|^\s*)(/.*?)\s+\(0x[0-9a-f]+\)", line)
         if match is None:
             continue
-        path = Path(match[1]).resolve()
+        reference = Path(match[1])
+        path = reference.resolve()
         if not path.is_relative_to(root):
             system = any(path.is_relative_to(base) for base in ["/lib", "/lib64", "/usr/lib", "/usr/lib64"])
-            if not system or path.name not in SYSTEM_ELF:
+            # The loader finds a library by its soname, often a link to a versioned file.
+            if not system or reference.name not in SYSTEM_ELF:
                 raise ValueError(f"ELF dependency is outside the package/system contract: {path}")
         bindings.append(str(path))
     return bindings
