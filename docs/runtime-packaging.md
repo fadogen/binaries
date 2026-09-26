@@ -55,8 +55,9 @@ Only the final compressed archive is tested: extraction, movement to an unrelate
 path containing spaces, execution and restart. The receipt binds those tested
 bytes to the immutable source plan. macOS native tests deny Homebrew and installed
 Fadogen runtimes; Linux checks dynamic bindings and hides Linuxbrew on its disposable
-runner. PHP checks its full selected extension set, Xdebug loading, CLI and FPM/CGI
-requests, SQLite persistence, Intl, Sodium and GD. Windows runner execution does
+runner. Linux archives are then qualified again in `fedora:latest`, which lacks
+`libcrypt.so.1`; each host writes its evidence to its own directory. PHP checks
+its full selected extension set, Xdebug loading, CLI and FPM/CGI requests, SQLite persistence, Intl, Sodium and GD. Windows runner execution does
 not establish independence from the Microsoft runtime already on that image.
 
 Reverb's source update must be merged before its new publication can pass the

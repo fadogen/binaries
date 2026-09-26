@@ -180,6 +180,22 @@ jobs:
         env:
           PACKAGE_ID: ${{ matrix.id }}
         run: uv run --locked --no-dev python .github/scripts/package-runtimes.py verify --id "$PACKAGE_ID"
+      # ldd on the build host resolves what that host provides. Stable Fedora does
+      # not install libcrypt.so.1, so it exposes a library borrowed from the host.
+      - name: Exercise the final archive again on stable Fedora
+        if: steps.prepare.outputs.should-build == 'true' && matrix.os == 'linux'
+        env:
+          PACKAGE_ID: ${{ matrix.id }}
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:$PWD" -w "$PWD" \
+            -v "$(command -v uv):/usr/local/bin/uv:ro" \
+            -e PACKAGE_ID -e HOME=/tmp -e UV_PROJECT_ENVIRONMENT=/tmp/venv \
+            fedora:latest sh -euc '
+              if ldconfig -p | grep -q "libcrypt\.so\.1 "; then
+                echo "fedora:latest provides libcrypt.so.1 and no longer proves anything" >&2
+                exit 1
+              fi
+              uv run --locked --no-dev python .github/scripts/package-runtimes.py verify --id "$PACKAGE_ID"'
       - uses: actions/attest-build-provenance@v4
         if: steps.prepare.outputs.should-build == 'true' && needs.plan.outputs.publish == 'true'
         with:

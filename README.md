@@ -162,8 +162,10 @@ shared X Plugin socket unless the caller overrides it.
 
 On macOS, sandbox-exec denies access to Homebrew and installed Fadogen runtimes.
 On Linux, all ELF bindings are checked against the package and an explicit system
-library allowlist; CI additionally hides Linuxbrew before execution. Linux still
-bundles GCC's shared C++/atomic runtimes and requires the distribution's glibc and loader: this is not a promise
+library allowlist; CI additionally hides Linuxbrew before execution. The same
+archive is then qualified again in a stable Fedora container, which does not
+install `libcrypt.so.1`, so a library borrowed from the build host fails there.
+Linux still bundles GCC's shared C++/atomic runtimes and requires the distribution's glibc and loader: this is not a promise
 of compatibility with every Linux distribution or Alpine/musl.
 
 See [the migration assessment](docs/native-packaging.md) for scope and evidence.
