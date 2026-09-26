@@ -11,9 +11,32 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / ".github/scripts"))
 from native_packages.smoke import check_linux_bindings
 from native_packages.vendor import verify_windows
+from runtime_packages.smoke import evidence_directory
 
 
 class VerificationTests(unittest.TestCase):
+    def test_each_qualifying_host_keeps_its_own_evidence(self):
+        output = Path("/tmp/dist")
+        package = {"id": "php-8.4-linux-arm64"}
+        directories = []
+        for release in [{"ID": "ubuntu", "VERSION_ID": "24.04"}, {"ID": "fedora", "VERSION_ID": "44"}]:
+            with patch("platform.freedesktop_os_release", return_value=release):
+                directories.append(evidence_directory(output, package))
+        self.assertEqual(
+            directories,
+            [
+                output / "php-8.4-linux-arm64-evidence/ubuntu-24.04",
+                output / "php-8.4-linux-arm64-evidence/fedora-44",
+            ],
+        )
+        with (
+            patch("platform.freedesktop_os_release", side_effect=OSError),
+            patch("platform.system", return_value="Darwin"),
+        ):
+            self.assertEqual(
+                evidence_directory(output, package), output / "php-8.4-linux-arm64-evidence/darwin"
+            )
+
     def test_linux_resolution_allows_only_package_and_explicit_system_libraries(self):
         root = Path("/tmp/package with spaces")
         bindings = check_linux_bindings(

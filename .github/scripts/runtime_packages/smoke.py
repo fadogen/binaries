@@ -351,12 +351,22 @@ CHECKS = {
 }
 
 
+def evidence_directory(output, package):
+    # The same archive is qualified on several hosts; each keeps its own proof.
+    try:
+        release = platform.freedesktop_os_release()
+        host = f"{release['ID']}-{release['VERSION_ID']}"
+    except (OSError, KeyError):
+        host = platform.system().lower()
+    return output / f"{package['id']}-evidence" / host
+
+
 def verify(package, receipt, output):
     validate_receipt(package, receipt, verified=False)
     output = Path(output).resolve()
     archive = output / receipt["filename"]
     require(file_digest(archive) == receipt["sha256"], "Final archive checksum mismatch")
-    evidence = output / f"{package['id']}-evidence"
+    evidence = evidence_directory(output, package)
     evidence.mkdir(parents=True, exist_ok=True)
     native = package["os"] != "any"
     with tempfile.TemporaryDirectory(prefix="Fadogen runtime qualification ") as temporary:
