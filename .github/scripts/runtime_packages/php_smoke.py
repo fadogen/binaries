@@ -14,6 +14,12 @@ def required_extensions(extensions):
     return {aliases.get(name, name).lower() for name in extensions}
 
 
+def ini_option(name, value):
+    # PHP quotes only -d values starting with a symbol. A raw Windows drive path
+    # lets the "~" of the runner's short temporary path act as an INI operator.
+    return f'{name}="{value}"'
+
+
 def fastcgi_request(port, script):
     def record(kind, content):
         return struct.pack("!BBHHBB", 1, kind, 1, len(content), 0, 0) + content
@@ -108,7 +114,7 @@ WINDOWS_EXTENSIONS = [
 def php(harness, package):
     windows = package["os"] == "windows"
     extension_dir = harness.root / ("ext" if windows else "extensions")
-    options = ["-n", "-d", f"extension_dir={extension_dir}", "-d", "display_errors=stderr"]
+    options = ["-n", "-d", ini_option("extension_dir", extension_dir), "-d", "display_errors=stderr"]
     if windows:
         for extension in WINDOWS_EXTENSIONS:
             options += ["-d", f"extension={extension}"]

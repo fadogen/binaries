@@ -1,14 +1,16 @@
-"""Exercise FastCGI framing and the final PHP package contract without PHP installed."""
+"""Exercise FastCGI framing and the final PHP package contract; PHP itself is optional."""
 
+import shutil
 import socket
 import struct
+import subprocess
 import sys
 import threading
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / ".github/scripts"))
-from runtime_packages.php_smoke import fastcgi_request, required_extensions
+from runtime_packages.php_smoke import fastcgi_request, ini_option, required_extensions
 
 
 class PhpQualificationTests(unittest.TestCase):
@@ -50,6 +52,19 @@ class PhpQualificationTests(unittest.TestCase):
             required_extensions(["mbregex", "mbstring", "opcache", "pdo_sqlsrv"]),
             {"mbstring", "zend opcache", "pdo_sqlsrv"},
         )
+
+    def test_php_reads_a_windows_short_extension_directory_verbatim(self):
+        php = shutil.which("php")
+        if php is None:
+            self.skipTest("PHP is not installed")
+        directory = r"C:\Users\RUNNER~1\AppData\Local\Temp\relocated runtime with spaces\ext"
+        result = subprocess.run(
+            [php, "-n", "-d", ini_option("extension_dir", directory), "-r", "echo ini_get('extension_dir');"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(result.stdout, directory)
 
 
 if __name__ == "__main__":
