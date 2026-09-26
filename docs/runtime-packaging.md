@@ -28,6 +28,8 @@ disjoint object namespaces; services retain their own namespace.
   execution; the source/dependency snapshot determines recompilation. Required
   dependency downloads use upstream prebuilt libraries where available. The
   download selection excludes suggestions, matching the build's extension set.
+  SPC's own source mirror remains available when a dependency site is unreachable;
+  the resulting bytes are included in the source snapshot before any compilation.
 - Windows PHP keeps the official NTS x64 ZIP. The manifest determines its compiler
   ABI; Xdebug and Redis versions and bytes are included in the fingerprint.
 - All macOS packaging targets ARM64 on macOS 26 runners. Linux uses Ubuntu 24.04

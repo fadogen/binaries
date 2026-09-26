@@ -24,7 +24,7 @@ class PhpInputTests(unittest.TestCase):
         self.assertIn("--ignore-cache-sources", arguments)
         self.assertIn("--prefer-pre-built", arguments)
         self.assertIn("--without-suggestions", arguments)
-        self.assertIn("--no-alt", arguments)
+        self.assertIn("--shallow-clone", arguments)
 
     def test_invalid_upstream_support_cannot_retire_every_php_version(self):
         for response in [{}, {"8": {}}, {"8": {"supported_versions": []}}]:

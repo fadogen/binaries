@@ -145,7 +145,7 @@ def download_arguments(spc, package):
         "--prefer-pre-built",
         "--ignore-cache-sources",
         "--without-suggestions",
-        "--no-alt",
+        "--shallow-clone",
         "--retry=2",
     ]
 
