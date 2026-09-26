@@ -6,6 +6,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.gitattributes'
       - '.github/scripts/**'
       - '.github/config/php.json'
       - '.github/config/services.json'
@@ -14,6 +15,7 @@ on:
       - '.github/workflows/package-runtimes.yml'
   pull_request:
     paths:
+      - '.gitattributes'
       - '.github/scripts/**'
       - '.github/config/php.json'
       - '.github/config/services.json'

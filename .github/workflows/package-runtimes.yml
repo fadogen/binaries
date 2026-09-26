@@ -20,6 +20,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.gitattributes'
       - '.github/scripts/runtime_packages/**'
       - '.github/scripts/package-runtimes.py'
       - '.github/config/runtimes.json'
@@ -28,6 +29,7 @@ on:
       - '.github/actions/**'
   pull_request:
     paths:
+      - '.gitattributes'
       - '.github/scripts/**'
       - '.github/config/runtimes.json'
       - '.github/workflows/package-runtimes.yml'
