@@ -10,6 +10,7 @@ from native_packages.common import write_json
 from runtime_packages.php import (
     check_pinned_sources,
     download_arguments,
+    download_environment,
     source_snapshot,
     supported_branches,
 )
@@ -36,6 +37,13 @@ class PhpInputTests(unittest.TestCase):
         self.assertIn("--prefer-pre-built", arguments)
         self.assertIn("--without-suggestions", arguments)
         self.assertIn("--shallow-clone", arguments)
+
+    def test_spc_downloads_give_up_on_unreachable_hosts_before_the_step_timeout(self):
+        with tempfile.TemporaryDirectory() as configuration:
+            environment = download_environment({"os": "linux"}, configuration)
+            self.assertEqual(environment["CURL_HOME"], configuration)
+            self.assertEqual(environment["SPC_LIBC"], "glibc")
+            self.assertEqual((Path(configuration) / ".curlrc").read_text(), "connect-timeout = 20\n")
 
     def test_downloaded_pinned_sources_must_match_their_planned_bytes(self):
         package = {

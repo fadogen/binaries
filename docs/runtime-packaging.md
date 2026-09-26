@@ -32,6 +32,8 @@ disjoint object namespaces; services retain their own namespace.
   download selection excludes suggestions, matching the build's extension set.
   SPC's own source mirror remains available when a dependency site is unreachable;
   the resulting bytes are included in the source snapshot before any compilation.
+  Each connection attempt gives up after 20 seconds, so several unreachable hosts,
+  such as ftp.gnu.org, still fit in the preparation step.
   Linux PHP carries the build host's `libcrypt.so.1` in `extensions/` with its
   notice: c-client links it dynamically, not every distribution installs that
   soname, and Fadogen's installer keeps only the executables and `extensions/`.

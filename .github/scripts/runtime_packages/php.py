@@ -220,6 +220,13 @@ def environment(package):
     return result
 
 
+def download_environment(package, configuration):
+    # SPC's curl calls otherwise wait out the kernel's two-minute connect timeout,
+    # three times per source, before SPC tries its mirror.
+    Path(configuration, ".curlrc").write_text("connect-timeout = 20\n")
+    return environment(package) | {"CURL_HOME": str(configuration)}
+
+
 def prepare(package, workspace, cache):
     if package["packager"] != php_packager_digest():
         raise ValueError("PHP recipe changed after planning")
@@ -235,7 +242,13 @@ def prepare(package, workspace, cache):
     require_version = run([spc, "--version"])
     if tool["version"] not in require_version:
         raise ValueError("SPC version differs from its pinned release")
-    subprocess.run(download_arguments(spc, package), cwd=workspace, env=environment(package), check=True)
+    with tempfile.TemporaryDirectory() as configuration:
+        subprocess.run(
+            download_arguments(spc, package),
+            cwd=workspace,
+            env=download_environment(package, configuration),
+            check=True,
+        )
     sources = source_snapshot(workspace / "downloads")
     check_pinned_sources(package, sources)
     return resolved_package(package, sources)
