@@ -3,8 +3,8 @@
 Native runtimes downloaded by [Fadogen](https://github.com/fouteox/tauri-fadogen).
 Database and cache engines are **repackaged from Homebrew bottles**, together with
 their runtime dependencies. Users do not install Homebrew. PHP continues to use
-static-php-cli; the independent Composer, Garage, SSHpass and Typesense workflows
-remain separate.
+static-php-cli. Composer, Garage, sshpass, Typesense and Reverb share one runtime
+packager and publisher; PHP reuses its verification and publication workflow.
 
 ## Service catalogue
 
@@ -25,7 +25,42 @@ previously published platform entry.
 The service matrix drops Intel Macs. Fadogen's intended macOS baseline is 27;
 packaging currently uses the standard ARM64 macOS 26 runner and selects an older
 compatible bottle where available. Linux qualification uses Ubuntu 24.04 on both
-architectures. These choices do not change the other workflows' platform policy.
+architectures. PHP also uses a Windows x64 runner to execute its CLI and CGI.
+
+## Other runtimes
+
+| Runtime | Source | Qualification |
+| --- | --- | --- |
+| Composer | Official PHAR and SHA-256 | Version, project validation, offline installation |
+| Garage | Homebrew bottles with runtime dependencies | Single-node S3 upload/download, restart, persisted object |
+| Typesense | Official macOS/Linux archives | Health, version, collection indexing, search after restart |
+| sshpass | Homebrew macOS ARM64 bottle | Version and controlling-terminal password exchange |
+| Reverb | Committed source and Composer lock from `fadogen/laravel-reverb` | WebSocket upgrade, subscription, signed event broadcast, restart |
+| PHP | Pinned stable static-php-cli on Unix; official NTS x64 ZIP on Windows | CLI and FPM/CGI requests, extensions, SQLite persistence, Intl, Sodium, GD, Xdebug |
+
+`.github/config/runtimes.json` selects utilities; `.github/config/php.json` selects
+maintained PHP branches, extensions and the exact SPC release with upstream
+checksums. The utility resolver hashes upstream bytes even when the version stays
+unchanged. Homebrew runtime dependency bottles participate in the same fingerprint.
+The Composer PHAR used to install Reverb is also pinned in its input plan.
+
+Reverb's Laravel application and dependency updates remain in its own repository.
+Dependabot proposes committed lockfile updates there. Binaries packages only the
+resolved main commit, runs `composer install` and the production dependency audit,
+and refuses a changed lockfile. No generated app key, initialized database, private
+environment or build-time configuration cache is published. The checked-in public
+local defaults remain available for Fadogen's existing launch contract. Reverb and
+Composer use Fadogen's PHP interpreter; they do not embed another PHP installation.
+
+The PHP workflow checks daily rather than every six hours. PHP.net's supported
+branches bound the configured catalogue. Each native target resolves the required
+sources and available prebuilt libraries, then hashes those inputs before deciding
+whether compilation is necessary. This still starts native runners and downloads
+sources on an unchanged check; it avoids repeating compilation, not all runner time.
+Optional sources that are not built are excluded. Full PHP versions and their
+official source checksums are frozen; no mutable nightly SPC executable is used.
+Windows planning pins PHP, Xdebug and Redis bytes, and fails if a required extension
+is unavailable. SPC or extension-policy upgrades are explicit configuration changes.
 
 ## Build and verify locally
 
@@ -95,21 +130,23 @@ is not equivalent to an official cross-platform Redis release.
 
 ## Python environment
 
-All Python workflow steps, including the PHP build manager, use the shared
+All Python workflow steps use the shared
 `.github/actions/setup-uv` action. Its Astral action revision is pinned, uv reads its
 required version from `pyproject.toml`, and Python reads `.python-version`.
 `uv sync --locked` rejects a missing or stale lockfile. Commands use `uv run --locked`;
 packaging excludes development dependencies, while the test job installs the locked
 Ruff release. Only the test job enables the small dependency cache. No global Python
-environment is modified. Python or tool upgrades are explicit repository changes,
+environment is modified. PHP source builds may install compiler prerequisites on
+disposable CI runners; local builds do not request SPC's system auto-fixes.
+Python or tool upgrades are explicit repository changes,
 separate from the daily refresh of Homebrew runtime components.
 
 ## Tests
 
 ```sh
 uv run --locked python -m unittest discover -s tests/python -v
-uv run --locked ruff check .github/scripts/package-services.py .github/scripts/native_packages tests/python
-uv run --locked ruff format --check .github/scripts/package-services.py .github/scripts/native_packages tests/python
+uv run --locked ruff check .github/scripts/package-*.py .github/scripts/native_packages .github/scripts/runtime_packages tests/python
+uv run --locked ruff format --check .github/scripts/package-*.py .github/scripts/native_packages .github/scripts/runtime_packages tests/python
 ```
 
 The offline regression suite covers dependency resolution, immutable inputs,

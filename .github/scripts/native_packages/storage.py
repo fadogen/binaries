@@ -46,10 +46,18 @@ class Store:
         )
 
     def fetch_metadata(self, targets, directory, *, require_existing=False):
+        self.fetch_catalogues(
+            [f"metadata-services-{target}.json" for target in targets],
+            directory,
+            require_existing=require_existing,
+        )
+
+    def fetch_catalogues(self, filenames, directory, *, require_existing=False):
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
-        for target in targets:
-            filename = f"metadata-services-{target}.json"
+        for filename in filenames:
+            if not re.fullmatch(r"metadata-[a-z0-9_-]+\.json", filename):
+                raise ValueError(f"Invalid catalogue filename: {filename}")
             destination = directory / filename
             with tempfile.TemporaryDirectory(dir=directory) as temporary:
                 downloaded = Path(temporary) / filename
@@ -96,8 +104,8 @@ class Store:
         if result.returncode:
             raise RuntimeError(f"Archive upload failed: {result.stderr.strip()}")
 
-    def publish_metadata(self, directory):
-        for path in sorted(Path(directory).glob("metadata-services-*.json")):
+    def publish_metadata(self, directory, *, pattern="metadata-services-*.json"):
+        for path in sorted(Path(directory).glob(pattern)):
             original = path.with_suffix(".json.orig")
             if original.exists() and read_json(original) == read_json(path):
                 continue

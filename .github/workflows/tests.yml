@@ -22,7 +22,7 @@ jobs:
         run: uv run --locked python -m unittest discover -s tests/python -v
       - name: Check Python style
         run: |
-          uv run --locked ruff check .github/scripts/package-services.py .github/scripts/native_packages tests/python
-          uv run --locked ruff format --check .github/scripts/package-services.py .github/scripts/native_packages tests/python
+          uv run --locked ruff check .github/scripts/package-*.py .github/scripts/native_packages .github/scripts/runtime_packages tests/python
+          uv run --locked ruff format --check .github/scripts/package-*.py .github/scripts/native_packages .github/scripts/runtime_packages tests/python
       - name: Check remaining shell entry points
         run: shellcheck --severity=warning .github/scripts/*.sh

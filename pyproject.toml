@@ -13,7 +13,7 @@ required-version = "==0.12.14"
 [tool.ruff]
 target-version = "py312"
 line-length = 110
-include = [".github/scripts/package-services.py", ".github/scripts/native_packages/*.py", "tests/python/*.py"]
+include = [".github/scripts/package-*.py", ".github/scripts/native_packages/*.py", ".github/scripts/runtime_packages/*.py", "tests/python/*.py"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP", "B"]

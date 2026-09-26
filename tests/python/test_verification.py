@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / ".github/scripts"))
 from native_packages.smoke import check_linux_bindings
@@ -27,6 +28,24 @@ class VerificationTests(unittest.TestCase):
         ]:
             with self.subTest(output=output), self.assertRaises(ValueError):
                 check_linux_bindings(root, output)
+
+    def test_linux_system_libraries_are_matched_by_the_soname_the_loader_used(self):
+        resolve = Path.resolve
+
+        def versioned(path, strict=False):
+            if path.name == "libstdc++.so.6":
+                return path.with_name("libstdc++.so.6.0.33")
+            return resolve(path, strict)
+
+        with patch.object(Path, "resolve", versioned):
+            bindings = check_linux_bindings(
+                Path("/tmp/package"), "libstdc++.so.6 => /lib/aarch64-linux-gnu/libstdc++.so.6 (0x123)"
+            )
+            self.assertEqual(bindings, ["/lib/aarch64-linux-gnu/libstdc++.so.6.0.33"])
+            with self.assertRaises(ValueError):
+                check_linux_bindings(
+                    Path("/tmp/package"), "libcrypt.so.1 => /lib/aarch64-linux-gnu/libcrypt.so.1 (0x123)"
+                )
 
     def test_windows_source_zip_cannot_pass_for_native_executable(self):
         with tempfile.TemporaryDirectory() as directory:
