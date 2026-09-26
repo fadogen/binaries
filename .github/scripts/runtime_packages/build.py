@@ -56,12 +56,17 @@ def assemble_runtime(package, root, cache, *, signing_identity="-", keychain=Non
             relocate_elf(root, {}, package["arch"])
     elif package["engine"] == "composer":
         tool = next(row for row in package["components"] if row["name"] == "composer")
-        composer = Downloader(cache).fetch(tool["url"], tool["sha256"]).resolve()
+        installer = Downloader(cache).fetch(tool["url"], tool["sha256"])
         php = os.environ.get("PHP_BINARY") or shutil.which("php")
         if php is None:
             raise RuntimeError("PHP is required to install Reverb's locked dependencies")
         with tempfile.TemporaryDirectory() as temporary:
-            extracted = Path(temporary)
+            # PHP opens a PHAR named like the cache's .tar.gz objects as a tar
+            # archive unless it starts with "<?php"; Composer's starts with a shebang.
+            composer = Path(temporary) / "composer.phar"
+            shutil.copyfile(installer, composer)
+            extracted = Path(temporary) / "source"
+            extracted.mkdir()
             extract(source, extracted)
             directories = list(extracted.iterdir())
             if len(directories) != 1 or not directories[0].is_dir():
