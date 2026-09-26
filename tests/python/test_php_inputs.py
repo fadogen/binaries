@@ -7,7 +7,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / ".github/scripts"))
 from native_packages.common import write_json
-from runtime_packages.php import download_arguments, source_snapshot, supported_branches
+from runtime_packages.php import (
+    check_pinned_sources,
+    download_arguments,
+    source_snapshot,
+    supported_branches,
+)
 
 
 class PhpInputTests(unittest.TestCase):
@@ -16,15 +21,42 @@ class PhpInputTests(unittest.TestCase):
             "version": "8.5.10",
             "extensions": ["curl"],
             "shared_extensions": ["xdebug"],
-            "components": [{"name": "php-src", "url": "https://www.php.net/distributions/php-8.5.10.tar.xz"}],
+            "components": [
+                {"name": "php-src", "url": "https://www.php.net/distributions/php-8.5.10.tar.xz"},
+                {"name": "xdebug", "url": "https://xdebug.org/files/xdebug-3.5.3.tgz"},
+                {"name": "spc", "url": "https://github.com/crazywhalecc/static-php-cli/releases/spc.tar.gz"},
+            ],
         }
         arguments = download_arguments("/test/spc", package)
         self.assertIn("--with-php=8.5.10", arguments)
         self.assertIn("--custom-url=php-src:https://www.php.net/distributions/php-8.5.10.tar.xz", arguments)
+        self.assertIn("--custom-url=xdebug:https://xdebug.org/files/xdebug-3.5.3.tgz", arguments)
+        self.assertEqual(sum(argument.startswith("--custom-url=") for argument in arguments), 2)
         self.assertIn("--ignore-cache-sources", arguments)
         self.assertIn("--prefer-pre-built", arguments)
         self.assertIn("--without-suggestions", arguments)
         self.assertIn("--shallow-clone", arguments)
+
+    def test_downloaded_pinned_sources_must_match_their_planned_bytes(self):
+        package = {
+            "components": [
+                {"name": "php-src", "sha256": "a" * 64},
+                {"name": "xdebug", "sha256": "b" * 64},
+                {"name": "spc", "sha256": "c" * 64},
+            ]
+        }
+        planned = [
+            {"name": "php-src", "sha256": "a" * 64},
+            {"name": "xdebug", "sha256": "b" * 64},
+            {"name": "libxml2", "sha256": "d" * 64},
+        ]
+        check_pinned_sources(package, planned)
+        for sources in [
+            [planned[0], {"name": "xdebug", "sha256": "e" * 64}, planned[2]],
+            [planned[0], planned[2]],
+        ]:
+            with self.subTest(sources=sources), self.assertRaisesRegex(ValueError, "xdebug"):
+                check_pinned_sources(package, sources)
 
     def test_invalid_upstream_support_cannot_retire_every_php_version(self):
         for response in [{}, {"8": {}}, {"8": {"supported_versions": []}}]:

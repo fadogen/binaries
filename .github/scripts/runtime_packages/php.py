@@ -23,6 +23,10 @@ from .sources import SourceCache, get_json, request, windows_php_source
 # extensions/, so the build host's copy travels there with its copyright notice.
 HOST_ELF = {"libcrypt.so.1": ("libxcrypt", Path("/usr/share/doc/libcrypt1/copyright"))}
 
+# SPC sources replaced by planned bytes. SPC resolves Xdebug through PIE, which
+# also takes pre-releases, while Windows packages use the stable PECL release.
+PINNED_SOURCES = ["php-src", "xdebug"]
+
 
 def php_packager_digest():
     folder = Path(__file__).parent
@@ -113,7 +117,9 @@ def php_plan(config, targets, cache):
                     engine="spc",
                     extensions=config["extensions"],
                     shared_extensions=config["shared_extensions"],
+                    xdebug=xdebug,
                 )
+                xdebug_url = f"https://xdebug.org/files/xdebug-{xdebug}.tgz"
                 package["components"] = [
                     {
                         "name": "php-src",
@@ -121,6 +127,7 @@ def php_plan(config, targets, cache):
                         "url": f"https://www.php.net/distributions/{source['filename']}",
                         "sha256": source["sha256"],
                     },
+                    {"name": "xdebug", "version": xdebug, **cache.source(xdebug_url)},
                     {"name": "spc", "version": config["spc"]["version"], **tool},
                     {
                         "name": "recipe",
@@ -140,13 +147,13 @@ def php_plan(config, targets, cache):
 
 
 def download_arguments(spc, package):
-    source = next(item for item in package["components"] if item["name"] == "php-src")
+    pinned = [item for item in package["components"] if item["name"] in PINNED_SOURCES]
     return [
         str(spc),
         "download",
         f"--with-php={package['version']}",
         "--for-extensions=" + ",".join(package["extensions"] + package["shared_extensions"]),
-        "--custom-url=php-src:" + source["url"],
+        *(f"--custom-url={item['name']}:{item['url']}" for item in pinned),
         "--prefer-pre-built",
         "--ignore-cache-sources",
         "--without-suggestions",
@@ -230,11 +237,15 @@ def prepare(package, workspace, cache):
         raise ValueError("SPC version differs from its pinned release")
     subprocess.run(download_arguments(spc, package), cwd=workspace, env=environment(package), check=True)
     sources = source_snapshot(workspace / "downloads")
-    actual = next(row["sha256"] for row in sources if row["name"] == "php-src")
-    expected = next(row["sha256"] for row in package["components"] if row["name"] == "php-src")
-    if actual != expected:
-        raise ValueError("Downloaded PHP source differs from PHP.net's planned checksum")
+    check_pinned_sources(package, sources)
     return resolved_package(package, sources)
+
+
+def check_pinned_sources(package, sources):
+    downloaded = {row["name"]: row["sha256"] for row in sources}
+    for item in package["components"]:
+        if item["name"] in PINNED_SOURCES and downloaded.get(item["name"]) != item["sha256"]:
+            raise ValueError(f"Downloaded {item['name']} differs from its planned checksum")
 
 
 def bundle_host_libraries(root):

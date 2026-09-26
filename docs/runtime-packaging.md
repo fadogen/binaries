@@ -25,7 +25,9 @@ disjoint object namespaces; services retain their own namespace.
 - PHP retains static-php-cli because the required native CLI/FPM extension set
   is not replaced by a generic PHP archive. The stable SPC release and its asset
   digests are pinned. PHP's full version and source checksum are planned before
-  execution; the source/dependency snapshot determines recompilation. Required
+  execution; the source/dependency snapshot determines recompilation. Xdebug's
+  stable PECL release is planned the same way, as on Windows: SPC's own PIE
+  resolution also takes pre-releases. Required
   dependency downloads use upstream prebuilt libraries where available. The
   download selection excludes suggestions, matching the build's extension set.
   SPC's own source mirror remains available when a dependency site is unreachable;
